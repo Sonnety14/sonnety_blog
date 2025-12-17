@@ -9,7 +9,7 @@ hidden: false
 comments: true
 draft: false
 categories:
-    - 数学
+    - math
 tags:
     - 数学
     - 线性代数
