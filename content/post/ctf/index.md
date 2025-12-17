@@ -204,7 +204,7 @@ R8, R9, R10, R11, R12, R13, R14, R15
 
 这带来了一个经典的攻击技巧：**Ret2Libc（Return to Libc）** 。
 
-##### Ret2Libc（Return to Libc）。
+##### Ret2Libc
 
 如果我想调用 `system("/bin/sh")`，但不知道 `system` 今天的真实地址在哪里（因为 ASLR），你需要做两步：
 
