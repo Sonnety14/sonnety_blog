@@ -41,8 +41,6 @@ services:
     disqus:
         shortname: "hugo-theme-stack"
     # GA Tracking ID
-    googleAnalytics:
-        id:
 
 pagination:
     pagerSize: 3
