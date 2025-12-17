@@ -13,6 +13,14 @@ categories:
 tags:
     - 闲话
 ---
+# 备份 blog
+
+在电脑上特定文件夹右键，`Open Git Bash here`。
+
+输入 `https://github.com/Sonnety14/sonnety_blog`，`--recursive` 会自动把博客源码 + 主题源码 全部拉下来。
+
+以后再更新博客，直接在该文件夹运行 `git pull`。
+
 # upd on 25/12/17 搭建博客
 
 [推歌:【重音テト/中字】平成【しぜんすい】](https://www.bilibili.com/video/BV1oPSEBKExA/?spm_id_from=333.1007.top_right_bar_window_custom_collection.content.click&vd_source=69aa8bfd2f389eec2562a6757236f432)
