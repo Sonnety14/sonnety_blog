@@ -9,9 +9,9 @@ hidden: false
 comments: true
 draft: false
 categories:
-    - 随笔
+    - 数学
 tags:
-    - 博客
+    - 数学
     - 线性代数
 ---
 
