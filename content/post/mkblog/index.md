@@ -69,3 +69,17 @@ tags:
  * 文件名敏感：math.png 和 Math.png 是两张图；_index.md 和 index.md 用途完全不同。
  * 缓存顽固：修改 CSS 或图片后，如果网页没变化，记得 Ctrl + F5 强制刷新。
  * 关联逻辑：文章分类 (categories: [math]) -> 文件夹 (content/categories/math/) -> 配置文件 (_index.md)，三者必须对应。
+
+## upd on 25/12/18 优化博客目录显示
+
+注意到 Hugo 搭建的博客目录是不能将一级标题显示的，这倒是好说，所有标题降一级即可。
+
+但是默认的说，五级标题就不在目录显示了，虽然这可能让目录显示的很整洁，但是这让逻辑很差，所以我改了。
+
+```
+markup:
+    tableOfContents:
+        endLevel: 5      # 👈 把这里的 4 改成 5
+        ordered: true
+        startLevel: 2
+```
