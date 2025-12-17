@@ -1,7 +1,7 @@
 ---
 title: 友链
 links:
- - title: K8He
+  - title: K8He
     description: 我喜欢你，高锰酸钾！
     website: https://home.cnblogs.com/u/K8He
     image: K8He.png
