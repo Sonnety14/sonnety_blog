@@ -1,4 +1,4 @@
-baseurl: https://example.com/
+baseURL: "https://Sonnety14.github.io/sonnety_blog/"
 languageCode: en-us
 theme: hugo-theme-stack
 title: Example Site
