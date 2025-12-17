@@ -11,7 +11,7 @@ body {
        数值越大(接近1)，遮罩越厚，背景图越淡。数值越小(接近0)，背景图越清晰。
        你可以尝试把 0.7 改成 0.5 或 0.8 试试效果。
     */
-    background-image: linear-gradient(rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0.9)), url('/sonnety_blog/img/lm.jpg');
+    background-image: linear-gradient(rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0.9)), url('/sonnety_blog/img/zaomiao.png');
     
     background-attachment: fixed;
     background-size: cover;
@@ -22,7 +22,7 @@ body {
 /* 当切换到暗黑模式时，我们需要盖一层黑色的遮罩，而不是白色的 */
 [data-scheme="dark"] body {
     /* rgba(0, 0, 0, 0.7) 意思是：黑色，70% 不透明度 */
-    background-image: linear-gradient(rgba(0, 0, 0, 0.9), rgba(0, 0, 0, 0.9)), url('/sonnety_blog/img/lm.jpg') !important;
+    background-image: linear-gradient(rgba(0, 0, 0, 0.9), rgba(0, 0, 0, 0.9)), url('/sonnety_blog/img/zaomiao.png') !important;
 }
 
 
