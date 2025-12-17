@@ -1,5 +1,5 @@
 ---
-title: 关于 && 友链
+title: 关于
 menu:
     main: 
         weight: -90
@@ -17,8 +17,4 @@ ACM && CTF 初学者，中国本科生。
 
 专写沙子博客捏www
 
-# 友情链接
-
-点击图片跳转捏。
-
-Weedy's Blog：[![image](oops.png)](https://blog.rikka.top/)
+边做边学好了，至今也只是在 `mygo` 。
