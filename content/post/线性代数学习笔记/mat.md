@@ -2,7 +2,7 @@
 title: "线性代数学习笔记"
 description: "一点思考"
 date: 2025-12-17T00:00:00+08:00
-image: 
+image: img/mat_head.png
 math: true
 license: 
 hidden: false
