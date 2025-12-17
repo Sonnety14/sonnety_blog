@@ -64,7 +64,7 @@ params:
             src: img/avatar.jpg
 
     article:
-        math: false
+        math: true
         toc: true
         readingTime: true
         license:
@@ -241,8 +241,9 @@ markup:
                     inline:
                         - - \(
                           - \)
+                        - - $    # 新增这一行
+                          - $    # 新增这一行
         renderer:
-            ## Set to true if you have HTML content inside Markdown
             unsafe: true
     tableOfContents:
         endLevel: 4
@@ -256,4 +257,3 @@ markup:
         lineNos: true
         lineNumbersInTable: true
         tabWidth: 4
-# 强制重新构建
