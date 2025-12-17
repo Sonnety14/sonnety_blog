@@ -1,14 +1,18 @@
 ---
-title: Links
+title: 友链
 links:
-  - title: GitHub
-    description: GitHub is the world's largest software development platform.
-    website: https://github.com
-    image: https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png
-  - title: TypeScript
-    description: TypeScript is a typed superset of JavaScript that compiles to plain JavaScript.
-    website: https://www.typescriptlang.org
-    image: ts-logo-128.jpg
+  - title: Weedy's Blog
+    description: 是 Weedy！
+    website: https://blog.rikka.top/about/
+    image: weedy.png
+  - title: cnblogs 旧址
+    description: OI时期的博客，建立在博客园。
+    website: https://www.cnblogs.com/sonnety-v0cali0d-kksk
+    image: favicon.jpg
+  - title: K8He
+    description: 我喜欢你，高锰酸钾！
+    website: https://home.cnblogs.com/u/K8He
+    image: https://pic.cnblogs.com/avatar/2480572/20251026174321.png
 menu:
     main: 
         weight: -50
@@ -18,20 +22,4 @@ menu:
 comments: false
 ---
 
-To use this feature, add `links` section to frontmatter.
-
-This page's frontmatter:
-
-```yaml
-links:
-  - title: GitHub
-    description: GitHub is the world's largest software development platform.
-    website: https://github.com
-    image: https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png
-  - title: TypeScript
-    description: TypeScript is a typed superset of JavaScript that compiles to plain JavaScript.
-    website: https://www.typescriptlang.org
-    image: ts-logo-128.jpg
-```
-
-`image` field accepts both local and external images.
+以下是受难名单。
