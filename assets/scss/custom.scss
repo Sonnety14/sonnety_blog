@@ -1,0 +1,31 @@
+/* --- 设置全屏背景图 --- */
+body {
+    /* 这里填你上传的图片路径 */
+    background-image: url('/img/lm.jpg');
+    
+    /* 让背景图固定不动，滚动网页时只有文字动 */
+    background-attachment: fixed;
+    
+    /* 让图片铺满全屏 */
+    background-size: cover;
+    
+    /* 图片居中显示 */
+    background-position: center;
+}
+
+/* --- 让文章卡片稍微透明一点，不然挡住背景图了 --- */
+.article-list--compact article, 
+.article-wrapper,
+.widget {
+    /* 255,255,255 是白色，0.9 是透明度(0-1) */
+    /* 如果觉得看不清字，就把 0.9 改成 0.95 或 1.0 */
+    background-color: rgba(255, 255, 255, 0.9) !important;
+}
+
+/* --- 暗黑模式下的透明度适配 --- */
+[data-scheme="dark"] .article-list--compact article,
+[data-scheme="dark"] .article-wrapper,
+[data-scheme="dark"] .widget {
+    /* 黑色半透明 */
+    background-color: rgba(29, 30, 32, 0.85) !important;
+}
