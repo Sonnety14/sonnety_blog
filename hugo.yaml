@@ -240,7 +240,7 @@ markup:
         renderer:
             unsafe: true
     tableOfContents:
-        endLevel: 4
+        endLevel: 6
         ordered: true
         startLevel: 2
     highlight:
