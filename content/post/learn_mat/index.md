@@ -180,6 +180,251 @@ $$Q^{-1} A Q = Q^T A Q = \Lambda$$
 
 **一个实矩阵 $A$ 可以被正交对角化，当且仅当 $A$ 是对称矩阵（ $A = A^T$ ）。**
 
+### 谱分解 or 特征分解。
+
+如果说“对角化”是把矩阵“拉直”了看，那么“谱分解”就是把矩阵 **“拆碎”** 了看。
+
+针对实对称矩阵 $A$ ：
+
+$$A = P \Lambda P^T$$
+
+（因为实对称矩阵可以正交对角化，所以 $P^{-1} = P^T$ ）
+
+我们把这个矩阵乘法暴力展开：
+
+$$
+A=\underbrace{
+\begin{pmatrix}
+p_1 & p_2 & \dots & p_n 
+\end{pmatrix}}_{P} 
+\underbrace{
+\begin{pmatrix}
+\lambda_1 & & & \\
+& \lambda_2 & & \\
+& & \ddots & \\
+& & & \lambda_n 
+\end{pmatrix}}
+_{\Lambda}
+\underbrace{
+\begin{pmatrix}
+p_1^T \\
+p_2^T \\
+\vdots \\
+p_n^T 
+\end{pmatrix}}
+_{P^T}
+$$
+
+这个连乘式可以写成一个求和式：
+
+$$A = \lambda_1 \underbrace{p_1 p_1^T}_{P_1} + \lambda_2 \underbrace{p_2 p_2^T}_{P_2} + \dots + \lambda_n \underbrace{p_n p_n^T}_{P_n}$$
+
+这就是谱分解公式： 
+
+$$A = \sum_{i=1}^n \lambda_i p_i p_i^T$$ 
+
+公式里有两部分核心元素：
+
+1. $\lambda_i$ ：这是特征值，代表在第 $i$ 个方向上的拉伸倍数。
+2. $p_i p_i^T$：方向，这是一个 $n \times n$ 的矩阵，我们通常记为 $P_i$（大写 $P$ ）。这个矩阵有一个响亮的名字：正交投影矩阵。
+
+它的物理意义是：把任何一个向量，强制 **投影** 到 $p_i$ 所指的那条直线上。
+
+这些投影矩阵 $P_i$ 有非常完美的性质：
+* 对称性： $P_i^T = P_i$。
+* 幂等性： $P_i^2 = P_i$ （投影两次等于投影一次，因为第一次投影完已经在直线上，再投也不改变）。
+* 互斥性： $P_i P_j = O$ （当 $i \neq j$ 时）。因为不同特征向量互相垂直，投影到 $x$ 轴后再投影到 $y$ 轴，结果就是 0。
+* 完备性： $P_1 + P_2 + \dots + P_n = E$ （把所有方向的投影加起来，就是原原本本的世界）。
+
+举个简单的例子：
+假设
+
+$$
+A = 
+\begin{pmatrix}
+3 & 0 \\
+0 & 1 
+\end{pmatrix}
+$$ 
+
+* $\lambda_1 = 3$ ，特征向量
+
+$$
+p_1 =
+\begin{pmatrix}
+1 \\
+0
+\end{pmatrix}
+$$
+
+
+* $\lambda_2 = 1$，特征向量
+
+$$
+p_2 =
+\begin{pmatrix}
+0 \\
+1
+\end{pmatrix}
+$$
+
+做谱分解：
+
+
+$$
+\begin{aligned}
+A &= 3 \cdot 
+\begin{pmatrix} 
+1 \\
+0 
+\end{pmatrix}
+\begin{pmatrix} 
+1 & 0 
+\end{pmatrix} + 1 \cdot 
+\begin{pmatrix} 
+0 \\
+1 
+\end{pmatrix} 
+\begin{pmatrix} 
+0 & 1 
+\end{pmatrix} \\
+&= 3 \cdot 
+\begin{pmatrix} 
+1 & 0 \\
+0 & 0 
+\end{pmatrix} + 1 \cdot 
+\begin{pmatrix} 
+0 & 0 \\
+0 & 1 
+\end{pmatrix} \\
+&= \begin{pmatrix}
+3 & 0 \\
+0 & 0 
+\end{pmatrix} + 
+\begin{pmatrix}
+0 & 0 \\
+0 & 1 
+\end{pmatrix} \\
+&= 
+\begin{pmatrix} 
+3 & 0 \\
+0 & 1 
+\end{pmatrix}
+\end{aligned}
+$$
+
+它把矩阵拆成了“只作用于 x 轴的部分”和“只作用于 y 轴的部分”。
+
+#### 例题
+
+三阶实对称方阵 $A$ 的特征值为 $6,3,3$ ，若对应于 $6$ 的特征向量 $p_1=(1,1,1)^{T}$ ，求方阵 $A$。
+
+对于实对称矩阵，如果特征值为 $\lambda_1$ 和 $\lambda_2$ （重根），且 $\lambda_1$ 对应的特征向量为 $p_1$ ，那么矩阵 $A$ 可以表示为：
+
+$$A = \lambda_1 P_1 + \lambda_2 (E - P_1)$$
+
+其中：
+* $P_1$ 是向 $p_1$ 方向投影的矩阵：$P_1 = \frac{p_1 p_1^T}{p_1^T p_1}$ 。
+* $E$ 是单位矩阵。
+* $E - P_1$ 其实就是投影到与 $p_1$ 垂直的空间（即 $\lambda=3$ 的特征空间）的投影矩阵。
+
+具体计算：
+
+1. 整理已知条件特征值：
+
+* $\lambda_1 = 6$（单根），$\lambda_2 = \lambda_3 = 3$ （二重根）。
+
+* 特征向量：$p_1 = (1, 1, 1)^T$。
+
+2. 化简公式代入公式：
+
+$$A = 6 P_1 + 3 (E - P_1)$$
+
+展开合并同类项：
+
+$$A = 6 P_1 + 3E - 3 P_1$$
+
+$$\mathbf{A = 3E + 3 P_1}$$
+
+(这一步大大简化了计算，我们只需要算 $P_1$ 即可)
+
+3. 计算投影矩阵 $P_1$
+
+
+$$
+p_1 p_1^T = 
+\begin{pmatrix} 
+1 \\
+1 \\
+1 
+\end{pmatrix} 
+\begin{pmatrix} 
+1 & 1 & 1 
+\end{pmatrix} =
+\begin{pmatrix} 
+1 & 1 & 1 \\
+1 & 1 & 1 \\
+1 & 1 & 1 
+\end{pmatrix}
+$$
+
+
+$$p_1^T p_1 = 1^2 + 1^2 + 1^2 = 3$$
+
+所以：
+
+$$
+P_1 = \frac{1}{3} 
+\begin{pmatrix} 
+1 & 1 & 1 \\
+1 & 1 & 1 \\
+1 & 1 & 1 
+\end{pmatrix}
+$$
+
+4. 代入求最终结果
+
+$$
+A = 3 
+\begin{pmatrix} 
+1 & 0 & 0 \\
+0 & 1 & 0 \\
+0 & 0 & 1 
+\end{pmatrix}
++3 
+\cdot
+\frac{1}{3}
+\begin{pmatrix}
+1 & 1 & 1 \\
+1 & 1 & 1 \\
+1 & 1 & 1
+\end{pmatrix}
+$$
+
+$$
+A = 
+\begin{pmatrix} 
+3& 0 & 0 \\
+0 & 3 & 0 \\
+0 & 0 & 3 
+\end{pmatrix} 
++
+\begin{pmatrix} 
+1 & 1 & 1 \\
+1 & 1 & 1 \\
+1 & 1 & 1 
+\end{pmatrix}
+$$
+
+$$
+A = 
+\begin{pmatrix} 
+4 & 1 & 1 \\ 
+1 & 4 & 1 \\
+1 & 1 & 4 
+\end{pmatrix}
+$$
+
 ### 相似矩阵与换基的关系
 
 [ref:维基百科](https://zh.wikipedia.org/wiki/%E7%9B%B8%E4%BC%BC%E7%9F%A9%E9%99%A3)
