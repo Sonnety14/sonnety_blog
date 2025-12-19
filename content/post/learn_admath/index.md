@@ -1,7 +1,7 @@
 ---
 title: "高等数学学习笔记"
 description: "一点思考。"
-date: 2025-12-17T00:00:00+08:00
+date: 2025-12-19T00:00:00+08:00
 image: admath.png
 math: true
 license: 
