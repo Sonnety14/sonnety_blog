@@ -428,7 +428,7 @@ $$0 = 2 + 0 + \frac{f''(\xi_2)}{2}(1-c)^2$$
   * 要让 $-\frac{4}{c^2} \le -16$ ，就得 $\frac{1}{c^2} \ge 4 \Rightarrow c^2 \le \frac{1}{4} \Rightarrow c \le \frac{1}{2}$。
   * 要让 $-\frac{4}{(1-c)^2} \le -16$ ，就得 $(1-c)^2 \le \frac{1}{4} \Rightarrow 1-c \le \frac{1}{2} \Rightarrow c \ge \frac{1}{2}$。
 
-无论 $c$ 在哪，$\xi_1$ 和 $\xi_2$ 中总有一个满足条件。
+无论 $c$ 在哪， $\xi_1$ 和 $\xi_2$ 中总有一个满足条件。
 
 所以， $\exists \xi \in \{\xi_1, \xi_2\} \subset (0,1)$ ，使得 $f''(\xi) \le -16$。
 
@@ -483,3 +483,41 @@ $$|f'(x)| \le 2a + \frac{b}{2}$$
 
 证毕.
 
+## 不定积分
+
+函数 $f(x)$ 的所有原函数的全体，称为 $f(x)$ 的不定积分，记作：
+
+$$\int f(x) dx = F(x) + C$$
+
+* $\int$ ：积分号（Integral Sign）。它其实是字母 S 的拉长.。
+* $f(x)$ ：被积函数（Integrand）。就是那个求导后的结果。
+* $dx$ ：积分变量。告诉你也是对谁积分（就像导数里的分母 $dx$ ）。
+* $F(x)$ ：某一个原函数。
+* $C$：积分常数（Arbitrary Constant）。**千万别漏了**,就是因为它，积分的结果才是不确定的，所以叫“不定”积分。
+
+三角函数基本积分表:
+
+* $\int \sin x dx = -\cos x + C$
+* $\int \cos x dx = \sin x + C$
+* $\int \sec^2 x dx = \tan x + C$
+* $\int \sec x\ \tan x dx = \sec x + C$
+* $\int \csc^2 x dx = -\cot x + C$
+
+### 基本性质
+
+* 导数和积分是互逆的
+
+$$\left[ \int f(x) dx \right]' = f(x)$$
+
+$$\int f'(x) dx = f(x) + C$$
+
+* 线性性质
+1. 系数可以提出来
+
+$$\int k \cdot f(x) dx = k \int f(x) dx \quad (k \neq 0)$$
+
+2. 加减可以分开算
+
+$$\int [f(x) \pm g(x)] dx = \int f(x) dx \pm \int g(x) dx$$
+
+### 换元积分法
