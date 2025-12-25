@@ -522,6 +522,155 @@ $$\int [f(x) \pm g(x)] dx = \int f(x) dx \pm \int g(x) dx$$
 
 ### 换元积分法
 
+
+### 分部积分法
+
+本质上就是乘法求导法则的逆运算。
+
+$$\int u \, dv = uv - \int v \, du$$
+
+或者如下：
+
+$$\int u(x) v'(x) \, dx = u(x)v(x) - \int v(x) u'(x) \, dx$$
+
+设 $u(x)$ 和 $v(x)$ 是两个可导函数。根据乘法法则：
+
+$$[u(x)v(x)]' = u'(x)v(x) + u(x)v'(x)$$
+
+我们把这个等式移项，把我们要积分的那部分 $u(x)v'(x)$ 单独留在一边：
+
+$$u(x)v'(x) = [u(x)v(x)]' - v(x)u'(x)$$
+
+接下来，对等式两边同时求不定积分（对 $x$ 积分）：
+
+$$\int u(x)v'(x) \, dx = \int [u(x)v(x)]' \, dx - \int v(x)u'(x) \, dx$$
+
+即
+
+$$\int u(x)v'(x) \, dx = u(x)v(x) - \int v(x)u'(x) \, dx$$
+
+为了好记，我们通常把 $v'(x)dx$ 写成 $dv$ ，把 $u'(x)dx$ 写成 $du$ ，公式就变成了简短的：
+
+$$\int u \, dv = uv - \int v \, du$$
+
+面对 $\int f(x)g(x) dx$，谁当 $u$（求导），谁当 $dv$（积分）？
+口诀：“反、对、幂、三、指”。
+
+这个顺序是选取 $u$ 的优先级（排在前面的优先设为 $u$）：
+1. 反：反三角函数 ($\arcsin x, \arctan x$)
+2. 对：对数函数 ($\ln x$)
+3. 幂：幂函数/多项式 ($x, x^2$)
+4. 三：三角函数 ($\sin x, \cos x$)
+5. 指：指数函数 ($e^x$)
+
+#### 基础形
+
+例 $1$ ： 
+
+$$\int x \sin 2x \, dx$$
+
+由口诀“幂 > 三”，选 $u=x$，$dv = \sin 2x dx$ 。
+
+$$v = \int \sin 2x dx = -\frac{1}{2} \cos 2x$$
+
+$$\text{原式} = -\frac{1}{2}x \cos 2x - \int (-\frac{1}{2} \cos 2x) dx$$
+
+$$= -\frac{1}{2}x \cos 2x + \frac{1}{4} \sin 2x + C$$
+
+例 $2$ ：
+
+$$\int x \arcsin x \, dx$$
+
+由口诀“反 > 幂”，选 $u = \arcsin x$ ， $dv = x dx \Rightarrow v = \frac{1}{2}x^2$ 。
+
+$$\text{原式} = \frac{1}{2}x^2 \arcsin x - \int \frac{1}{2}x^2 \cdot \frac{1}{\sqrt{1-x^2}} dx$$
+
+为了去掉分母里的根号 $\sqrt{1-x^2}$ ，我们令：
+
+$$x = \sin t \quad (-\frac{\pi}{2} < t < \frac{\pi}{2})$$
+
+$$dx = \cos t \, dt$$
+
+$$\sqrt{1-x^2} = \sqrt{1-\sin^2 t} = \cos t$$
+
+将 $x$ 和 $dx$ 换进去：
+
+$$J = \int \frac{\sin^2 t}{\cos t} \cdot \cos t \, dt$$
+
+$$\cos t \text{ 约分后：}$$
+
+$$J = \int \sin^2 t \, dt$$
+
+遇到偶次幂 $\sin^2 t$ ，使用倍角公式降次： $\sin^2 t = \frac{1 - \cos 2t}{2}$
+
+$$J = \int \frac{1 - \cos 2t}{2} \, dt = \frac{1}{2} \int (1 - \cos 2t) \, dt$$
+
+$$J = \frac{1}{2} \left( t - \frac{1}{2}\sin 2t \right)$$
+
+为了方便回代，把 $\sin 2t$ 展开：
+
+$$J = \frac{1}{2} t - \frac{1}{4}(2\sin t \cos t) = \frac{1}{2} t - \frac{1}{2}\sin t \cos t$$
+
+所以积分 $J$ 的结果是：
+
+$$J = \frac{1}{2} \arcsin x - \frac{1}{2} x \sqrt{1-x^2}$$
+
+$$I = \frac{2x^2-1}{4} \arcsin x + \frac{1}{4} x \sqrt{1-x^2} + C$$
+
+#### 隐形的 1
+
+被积函数只有一个复杂的“反”或“对”函数，这时候把 $dv$ 看作 $1 \cdot dx$ 。
+
+例： 
+
+$$\int \arctan \sqrt{x} \, dx$$
+
+令 $t = \sqrt{x} \Rightarrow x=t^2, dx=2tdt$ 。
+
+原式变为 $\int \arctan t \cdot 2t dt$
+
+#### 循环积分
+
+积分两次后，又回到了原来的积分形式，然后通过移项解方程求解。
+
+例： 
+
+$$\int \sin(\ln x) \, dx$$
+
+容易得到，前步骤省略：
+
+$$I = x \sin(\ln x) - \int \cos(\ln x) \, dx$$
+
+对后面剩下的 $\int \cos(\ln x) \, dx$ 再做一次分部积分，直到原来的积分 $I$ 再次出现，然后通过移项解方程求出结果。
+
+* $J = \int \cos(\ln x) \, dx$
+* $u = \cos(\ln x)$
+* $du = -\sin(\ln x) \cdot \frac{1}{x} \, dx$
+* $dv = dx$
+* $v = x$
+
+$$J = x \cos(\ln x) - \int x \cdot \left( -\frac{\sin(\ln x)}{x} \right) \, dx$$
+
+$$J = x \cos(\ln x) + \int \sin(\ln x) \, dx$$
+
+这里出现的 $\int \sin(\ln x) \, dx$ 正是我们一开始要求的原积分 $I$。
+
+$$I = x \sin(\ln x) - \left[ x \cos(\ln x) + I \right]$$
+
+#### 凑微分
+
+不会。
+
+$$\int x \frac{\cos x}{\sin^3 x} \, dx$$
+
+* 这里 $x$ 是幂函数，$\frac{\cos x}{\sin^3 x}$ 是三角部分。
+* 发现 $(\frac{-1}{2\sin^2 x})' = \frac{\cos x}{\sin^3 x}$。
+* 所以设 $u=x$，$dv = \frac{\cos x}{\sin^3 x} dx$。
+
+$$$\int \frac{x^2 e^x}{(x+2)^2} \, dx$$$
+* 关键是把 $dv$ 设为 $\frac{1}{(x+2)^2} dx$（因为它积分是 $\frac{-1}{x+2}$），剩下的全是 $u$。
+* 或者分子配凑：$x^2 = (x+2-2)^2$，拆开后再积。
+
 ## 定积分
 
 定积分 $\int_a^b f(x) dx$ 代表的是曲线 $y=f(x)$、直线 $x=a, x=b$ 以及 $x$ 轴所围成的**曲边梯形的面积**。
