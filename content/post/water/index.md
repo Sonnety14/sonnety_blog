@@ -2,7 +2,7 @@
 title: "CTF 学习日志 0x00 版"
 description: "如有错误请指出"
 date: 2025-12-27T00:00:00+08:00
-image: water.png
+image: water.jpg
 math: true
 license: 
 hidden: false
