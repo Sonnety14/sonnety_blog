@@ -17,6 +17,10 @@ tags:
 
 以下内容为 gemini3pro 整理生成，数据爬自 2025/12/27。
 
+[点击下载评论文件](https://github.com/Sonnety14/sonnety_blog/raw/refs/heads/main/content/post/water/huoshui_reviews.xlsx)
+
+[点击下载课程文件](https://github.com/Sonnety14/sonnety_blog/raw/refs/heads/main/content/post/water/huoshui_courses.xlsx)
+
 ---
 
 # **🎓 活水评课数据库**
