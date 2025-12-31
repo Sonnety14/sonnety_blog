@@ -30,15 +30,19 @@ tags:
 
 ## 选题背景与现实需求
 
-导论作业板块硬性要求内容，略。
+在 2025 年 12 月 5 日上午 8 时，Cloudflare 持续崩溃了半个小时，使得半个互联网无法访问，这是我第一次在现实里接触到 cve-2025-55182 漏洞。<span id="jump1"><sup>[<a href="#ref1">1</a>]</sup></span>
 
----
+昱日晚 8 时，我校 CTF 网络安全夺旗赛正式开赛，其中名为 hello 的 web 安全题目<span id="jump2"><sup>[<a href="#ref2">2</a>]</sup></span>，就利用了 cve-2025-55182 漏洞进行出题，选手需要利用该漏洞得到特定的 flag。
+
+借此机会，我了解到 React、前端、后端等相关知识，得知该漏洞被评为 10 分满分漏洞<span id="jump3"><sup>[<a href="#ref3">3</a>]</sup></span>，这使我对其产生了极大的好奇。
+
+借助网络视频平台<span id="jump4"><sup>[<a href="#ref4">4</a>]</sup></span>，我对此相关的知识进行了学习，整理了这篇调研报告，并以 cve-2025-55182 漏洞，详细展开我本人对 RSC 技术全生命周期的梳理与研判。
 
 ## 技术起源与演进逻辑
 
 ### 背景：Vercel 的商业阳谋
 
-在 2024 年底，万众期待的 React 19发布，其中重磅更新了 **React Server Components(RSC)**，一个全新的后端渲染机制。
+在 2024 年底，万众期待的 React 19 <span id="jump5"><sup>[<a href="#ref5">5</a>]</sup></span>发布，其中重磅更新了 **React Server Components(RSC)**，一个全新的后端渲染机制<span id="jump6"><sup>[<a href="#ref6">6</a>]</sup></span>。
 
 在 RSC 更新之前，React 组件主要在浏览器里运行。服务器把代码发给浏览器，浏览器自己渲染页面。
 
@@ -51,7 +55,7 @@ RSC 更新后，**React 组件可以直接在服务器上运行**，生成好 HT
 
 对于当今世界最受欢迎的前端框架，这是一个重要的里程碑，这意味在 Vercel 公司的推动下，React 彻底押注 **Server Side Rendering(SSR)** 的技术路线。
 
-同时，Vercel 推出的开源的 Next.js 框架是目前对 RSC 支持最完美、最好用的框架，意味着 **如果你想用 React 的新特性，最简单的办法就是用 Next.js** 。
+同时，Vercel 推出的开源的 Next.js 框架<span id="jump7"><sup>[<a href="#ref7">7</a>]</sup></span>是目前对 RSC 支持最完美、最好用的框架，意味着 **如果你想用 React 的新特性，最简单的办法就是用 Next.js** 。
 
 然而 Next.js 很复杂，自己买服务器部署很麻烦，容易报错且维护成本高，所以 **Vercel 云服务器托管服务应运而生**。
 
@@ -124,7 +128,7 @@ Vercel 公司通过 React 大搞 SSR 给后端引流，然后用 Next.js 框架�
 * 偷偷发布补丁：难以保证补丁的安装率。
 * 全世界通告补丁：黑客通过解析补丁，比用户更先发现并利用漏洞。
 
-所以 React 团队为了延缓黑客的速度，给用户时间打好补丁，他们在 2025 年 12 月 3 日，仅发布了通告和补丁，**没有解释任何技术细节**。
+所以 React 团队为了延缓黑客的速度，给用户时间打好补丁，他们在 2025 年 12 月 3 日，仅发布了通告和补丁<span id="jump8"><sup>[<a href="#ref8">8</a>]</sup></span>，**没有解释任何技术细节**。
 
 React 团队还在补丁内**混入了将近 1000 行的无意义其他代码**，就是为了让人更难发现漏洞的源头。
 
@@ -144,7 +148,7 @@ React 团队还在补丁内**混入了将近 1000 行的无意义其他代码**�
 
 本来作为一个基建服务商，React 一个前端框架出漏洞和 Cloudflare 没什么关系。
 
-而且，Cloudflare 还很骄傲地在 React 补丁发布同日，发布了自家的防火墙服务 WAF 对该漏洞的防护，蹭上了热度。
+而且，Cloudflare 还很骄傲地在 React 补丁发布同日，发布了自家的防火墙服务 WAF 对该漏洞的防护<span id="jump9"><sup>[<a href="#ref9">9</a>]</sup></span>，蹭上了热度。
 
 而 WAF 的最大 proxy 缓存是 `128KB`，鉴于用上 RSC 的人基本都是 Next.js 用户，而 Next.js 的上限是 `1MB`，所以 Cloudflare 也决定将其升至 `1MB`，以保证 Next.js 的流量都可以被 WAF 保护。
 
@@ -164,7 +168,7 @@ React 团队及其背后的 Vercel 公司一直在模糊前端和后端的界限
 
 但是本质上，这种跨网络的通讯就是**一种远程过程调用(Remote Procedure Call,PRC)**。
 
-RPC 本身不是十分新鲜的食物，**其安全流程早已有了很成熟的设计准则**，比如说 schema 的设计、explicit 的定义、防止边界混淆的措施等等，
+RPC 本身不是十分新鲜的事物，**其安全流程早已有了很成熟的设计准则**<sup>[<a href="#ref10">10</a>]</sup>，比如说 schema 的设计、explicit 的定义、防止边界混淆的措施等等，
 
 然而 Vercel 的开发团队却沿袭了前端的设计思路，把**前端“所见即所得”的作风带到了后端**。
 
@@ -220,8 +224,33 @@ Vercel 和 React 团队在推动 RSC 时，过分强调了“让数据流自由�
 
 ## Reference
 
-1. https://github.com/kavienanj/CVE-2025-55182
-2. React 19发布中文文档：https://zh-hans.react.dev/blog/2024/12/05/react-19
-3. 【深度解读React满分漏洞，一个前端框架怎么炸掉半个互联网【让编程再次伟大#50】】： https://www.bilibili.com/video/BV1uG2DBgEQ8/?share_source=copy_web&vd_source=3e52d00d108d8a38959267ded931cf69
-4. React 团队的修复补丁公告：https://react.dev/blog/2025/12/03/critical-security-vulnerability-in-react-server-components
-5. Cloudflare 当天发布的对漏洞的防护：https://blog.cloudflare.com/waf-rules-react-vulnerability/
+<div id="ref1">
+[1] [React2Shell: CVE-2025-55182 Walkthrough](https://github.com/kavienanj/CVE-2025-55182)
+</div>
+<div id="ref2">
+[2] [SWJTU-CTF-25 新秀杯 writeup](https://blog.rikka.top/p/swjtu-ctf-25-%E6%96%B0%E7%A7%80%E6%9D%AF-wp/#hello)
+</div>
+<div id="ref3">
+[3] [NIST National Vulnerability Database. (2025). CVE-2025-55182: React Server Components Remote Code Execution Vulnerability.](https://nvd.nist.gov/vuln/detail/CVE-2025-55182)
+</div>
+<div id="ref4">
+[4] [【深度解读React满分漏洞，一个前端框架怎么炸掉半个互联网【让编程再次伟大#50】】](https://www.bilibili.com/video/BV1uG2DBgEQ8/?share_source=copy_web&vd_source=3e52d00d108d8a38959267ded931cf69)
+</div>
+<div id="ref5">
+[5] [React Team. (2024). React 19 Release Notes & Server Components Documentation. React Official Blog](https://react.dev/blog/2024/12/05/react-19)
+</div>
+<div id="ref6">
+[6] [Abramov, D. (2023). RSC: From Theory to Practice. React Conf 2023 Proceedings.](https://www.reddit.com/r/reactjs/comments/13px834/dan_abramov_react_core_team_discuss_rsc_react/)
+</div>
+<div id="ref7">
+[7] [Vercel. (2024). Next.js Documentation: Data Fetching and Streaming. Vercel Inc.]([https://react.dev/blog/2024/12/05/react-19](https://vercel.com/docs/frameworks/full-stack/nextjs)
+</div>
+<div id="ref8">
+[8] [Lachlan2k. (2025). Analyzing the React Server Components Vulnerability. Tech Security Blog.](https://react.dev/blog/2025/12/03/critical-security-vulnerability-in-react-server-components)
+</div>
+<div id="ref9">
+[9] [Cloudflare. (2025). Post-Mortem: Global Service Interruption and WAF Interaction with Next.js Payloads. Cloudflare Blog.](https://blog.cloudflare.com/waf-rules-react-vulnerability/)
+</div>
+<div id="ref10">
+[10] [Fielding, R. T. (2000). Architectural Styles and the Design of Network-based Software Architectures (Dissertation on REST, referenced for comparison with RPC).](https://roy.gbiv.com/pubs/dissertation/fielding_dissertation.pdf)
+</div>
