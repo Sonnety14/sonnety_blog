@@ -219,32 +219,52 @@ Vercel 和 React 团队在推动 RSC 时，过分强调了“让数据流自由�
 ## Reference
 
 <div id="ref1">
+
 [1] [React2Shell: CVE-2025-55182 Walkthrough](https://github.com/kavienanj/CVE-2025-55182)
+
 </div>
 <div id="ref2">
+
 [2] [SWJTU-CTF-25 新秀杯 writeup](https://blog.rikka.top/p/swjtu-ctf-25-%E6%96%B0%E7%A7%80%E6%9D%AF-wp/#hello)
+
 </div>
 <div id="ref3">
+
 [3] [NIST National Vulnerability Database. (2025). CVE-2025-55182: React Server Components Remote Code Execution Vulnerability.](https://nvd.nist.gov/vuln/detail/CVE-2025-55182)
+
 </div>
 <div id="ref4">
+
 [4] [【深度解读React满分漏洞，一个前端框架怎么炸掉半个互联网【让编程再次伟大#50】】](https://www.bilibili.com/video/BV1uG2DBgEQ8/?share_source=copy_web&vd_source=3e52d00d108d8a38959267ded931cf69)
+
 </div>
 <div id="ref5">
+
 [5] [React Team. (2024). React 19 Release Notes & Server Components Documentation. React Official Blog](https://react.dev/blog/2024/12/05/react-19)
+
 </div>
 <div id="ref6">
+
 [6] [Abramov, D. (2023). RSC: From Theory to Practice. React Conf 2023 Proceedings.](https://www.reddit.com/r/reactjs/comments/13px834/dan_abramov_react_core_team_discuss_rsc_react/)
+
 </div>
 <div id="ref7">
-[7] [Vercel. (2024). Next.js Documentation: Data Fetching and Streaming. Vercel Inc.]([https://react.dev/blog/2024/12/05/react-19](https://vercel.com/docs/frameworks/full-stack/nextjs)
+
+[7] [Vercel. (2024). Next.js Documentation: Data Fetching and Streaming. Vercel Inc.](https://vercel.com/docs/frameworks/full-stack/nextjs)
+
 </div>
 <div id="ref8">
+
 [8] [Lachlan2k. (2025). Analyzing the React Server Components Vulnerability. Tech Security Blog.](https://react.dev/blog/2025/12/03/critical-security-vulnerability-in-react-server-components)
+
 </div>
 <div id="ref9">
+
 [9] [Cloudflare. (2025). Post-Mortem: Global Service Interruption and WAF Interaction with Next.js Payloads. Cloudflare Blog.](https://blog.cloudflare.com/waf-rules-react-vulnerability/)
+
 </div>
 <div id="ref10">
+
 [10] [Fielding, R. T. (2000). Architectural Styles and the Design of Network-based Software Architectures (Dissertation on REST, referenced for comparison with RPC).](https://roy.gbiv.com/pubs/dissertation/fielding_dissertation.pdf)
+
 </div>
