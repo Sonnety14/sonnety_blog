@@ -2,7 +2,7 @@
 title: "cve-2025-55182 初解"
 description: "初衷疑似是为了完成导论作业，顺便学一下，如有错误请指出"
 date: 2026-01-01T00:00:00+08:00
-image: 55182.png
+image: 55182.jpg
 math: true
 license: 
 hidden: false
