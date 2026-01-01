@@ -1,6 +1,6 @@
 ---
-title: "高等数学学习笔记"
-description: "一点思考。"
+title: "高等数学学习笔记 Ⅰ"
+description: "一点思考，如有错误请指出。"
 date: 2025-12-19T00:00:00+08:00
 image: admath.png
 math: true
@@ -14,6 +14,8 @@ tags:
     - 高等数学
     - 学习日志
 ---
+
+前言：自用，例题简单，微分方程部分已补充题目，其他部分懒得补了。
 
 ## 基础概念：
 
@@ -103,7 +105,7 @@ $$f'(x_0) = \lim_{\Delta x \to 0} \frac{f(x_0 + \Delta x) - f(x_0)}{\Delta x}$$
   * 左导数 $f'_-(x_0) \ge 0$ 。
 * 对于右极限
   *  $f(x_0 + \Delta x) \le f(x_0)$ ，分子 $\le 0$ 。
-  *  分母：$\Delta x > 0$ 。
+  *  分母： $\Delta x > 0$ 。
   *  右导数 $f'_+(x_0) \le 0$。
 夹逼得出结论：
 
@@ -522,6 +524,7 @@ $$\int [f(x) \pm g(x)] dx = \int f(x) dx \pm \int g(x) dx$$
 
 ### 换元积分法
 
+待补。
 
 ### 分部积分法
 
@@ -569,7 +572,7 @@ $$\int u \, dv = uv - \int v \, du$$
 
 $$\int x \sin 2x \, dx$$
 
-由口诀“幂 > 三”，选 $u=x$，$dv = \sin 2x dx$ 。
+由口诀“幂 > 三”，选 $u=x$， $dv = \sin 2x dx$。
 
 $$v = \int \sin 2x dx = -\frac{1}{2} \cos 2x$$
 
@@ -663,13 +666,14 @@ $$I = x \sin(\ln x) - \left[ x \cos(\ln x) + I \right]$$
 
 $$\int x \frac{\cos x}{\sin^3 x} \, dx$$
 
-* 这里 $x$ 是幂函数，$\frac{\cos x}{\sin^3 x}$ 是三角部分。
+* 这里 $x$ 是幂函数， $\frac{\cos x}{\sin^3 x}$ 是三角部分。
 * 发现 $(\frac{-1}{2\sin^2 x})' = \frac{\cos x}{\sin^3 x}$。
-* 所以设 $u=x$，$dv = \frac{\cos x}{\sin^3 x} dx$。
+* 所以设 $u=x$， $dv = \frac{\cos x}{\sin^3 x} dx$ 。
 
-$$$\int \frac{x^2 e^x}{(x+2)^2} \, dx$$$
+$$\int \frac{x^2 e^x}{(x+2)^2} \, dx$$
+
 * 关键是把 $dv$ 设为 $\frac{1}{(x+2)^2} dx$（因为它积分是 $\frac{-1}{x+2}$），剩下的全是 $u$。
-* 或者分子配凑：$x^2 = (x+2-2)^2$，拆开后再积。
+* 或者分子配凑： $x^2 = (x+2-2)^2$，拆开后再积。
 
 ## 定积分
 
@@ -728,8 +732,8 @@ $$\frac{d}{dx} \int_{v(x)}^{u(x)} f(t) dt = f[u(x)] \cdot u'(x) - f[v(x)] \cdot 
 
 * $\lim_{x \to 0} \frac{\int_0^x \cos t^2 dt}{x}$
 * 分子求导： $\cos(x^2)$
-* 分母求导：$1$
-* 结果：$\cos(0) = 1$
+* 分母求导： $1$
+* 结果： $\cos(0) = 1$
 
 #### 定积分是常数（解积分方程）
 
@@ -752,12 +756,12 @@ $$\frac{d}{dx} \int_{v(x)}^{u(x)} f(t) dt = f[u(x)] \cdot u'(x) - f[v(x)] \cdot 
 
 $$I = \int_0^2 |1-x| \sqrt{(x-2)^2} dx$$
 
-* 先化简：$\sqrt{(x-2)^2} = |x-2|$
-* 在 $[0,2]$ 区间上，$x-2$ 恒为负，所以 $|x-2| = 2-x$
+* 先化简： $\sqrt{(x-2)^2} = |x-2|$
+* 在 $[0,2]$ 区间上， $x-2$ 恒为负，所以 $|x-2| = 2-x$
 * 对于 $|1-x|$，以 $1$ 为界拆分：
   * $0 \le x \le 1$ 时，是 $(1-x)$
   * $1 < x \le 2$ 时，是 $(x-1)$
-* 拆积分：$\int_0^1 (1-x)(2-x) dx + \int_1^2 (x-1)(2-x) dx$
+* 拆积分： $\int_0^1 (1-x)(2-x) dx + \int_1^2 (x-1)(2-x) dx$
 
 #### 变限积分函数
 
@@ -765,9 +769,471 @@ $$I = \int_0^2 |1-x| \sqrt{(x-2)^2} dx$$
 
 $\Phi(x) = \int_0^x f(t) dt$ ,分段函数 $f(t)$ ：在 $[0,1]$ 是 $t^2$ ，在 $[1,2]$ 是 $t$ ，求 $\Phi(x)$ 。
 
-* 情况 1：$0 \le x \le 1$ ， $\Phi(x) = \int_0^x t^2 dt = \frac{1}{3}x^3$ 。
+* 情况 1： $0 \le x \le 1$ ， $\Phi(x) = \int_0^x t^2 dt = \frac{1}{3}x^3$ 。
 
 * 情况 2： $1 < x \le 2$
   * 积分是从 0 积到 $x$，必须要把前面那一段满的加上！
   * $\Phi(x) = \int_0^1 t^2 dt + \int_1^x t dt$
   * $\Phi(x) = \frac{1}{3} + [\frac{1}{2}t^2]_1^x = \frac{1}{3} + (\frac{1}{2}x^2 - \frac{1}{2})$
+
+### 定积分的换元积分法
+
+当自变量从 $x$ 变成 $t$ 时，积分的上下限必须从 $x$ 的范围变成 $t$ 的范围。
+
+计算出 $t$ 的定积分数值后直接就是答案，无需再把 $t$ 换回 $x$ 去算。
+
+#### 根式代换（去根号）
+
+* 特征：被积函数含有难处理的根号。
+* 方法：直接令 $t = \sqrt{\dots}$，反解出 $x$，算出 $dx$。
+  * 例题 $\int_0^4 \frac{dx}{1+\sqrt{x}}$ ：令 $t=\sqrt{x}$。
+  * 换限：当 $x=0 \to t=0$；当 $x=4 \to t=2$ 。
+  * 新积分为 $\int_0^2 \frac{2t}{1+t} dt$ ，算出结果即可。
+
+#### 三角代换（处理平方差/和）
+
+* 特征：出现 $\sqrt{a^2-x^2}, \sqrt{a^2+x^2}, \sqrt{x^2-a^2}$。
+* 方法：令 $x = a\sin t, a\tan t, a\sec t$ 。
+* **注意：定积分中三角代换一定要注意 $t$ 的取值范围，保证单调性。**
+  * 例题 $\int_0^a \frac{x^2}{\sqrt{a^2+x^2}} dx$：令 $x=a\tan t$ 。
+  * 换限： $x: 0 \to a$ 变为 $t: 0 \to \frac{\pi}{4}$ 。
+  * 直接计算 $t$ 的积分。
+
+#### 利用奇偶性与对称性
+
+* 特征：积分区间对称（如 $[-a, a]$ 或 $[-\pi, \pi]$ ）。
+* 方法：若 $f(x)$ 是奇函数：积分直接为 0 。若 $f(x)$ 是偶函数：积分为 $2 \int_0^a f(x) dx$ 。
+  * 例题 $\int_{-1}^1 x^n \sqrt{1-x^2} dx$
+  * 如果 $n$ 是奇数，被积函数是奇函数，答案直接写 0。
+  * 如果 $n$ 是偶数，变为 $2 \int_0^1$ 计算。
+
+#### 区间变换公式（King's Property / 华里斯公式前置）
+
+* 特征：三角函数的特殊积分，或者证明题。
+* 方法：令 $t = \frac{\pi}{2} - x$ 或 $t = \pi - x$。
+* 经典结论： $\int_0^{\pi} x f(\sin x) dx = \frac{\pi}{2} \int_0^{\pi} f(\sin x) dx$
+
+### 定积分的分部积分法
+
+$$\int_a^b u v' dx = [uv]_a^b - \int_a^b v u' dx$$
+
+证明已经在“不定积分的分部积分法”提及，不再赘述。
+
+#### 标准“反对幂三指”计算
+
+* 例题： $\int \frac{x}{\sin^2 x} dx = \int x \csc^2 x dx$
+* $u=x, dv=\csc^2 x dx \Rightarrow v=-\cot x$
+
+* 例题： $\int_1^e \ln^3 x dx$
+* $u=\ln^3 x, dv=dx$
+
+#### 递推公式
+
+* 特征： $\sin^n x$ 或 $\cos^n x$ 在 $[0, \frac{\pi}{2}]$ 上的积分。
+
+$$I_n = \int_0^{\frac{\pi}{2}} \sin^n x dx = \int_0^{\frac{\pi}{2}} \cos^n x dx$$
+
+* 若 $n$ 为偶数： $\frac{n-1}{n} \cdot \frac{n-3}{n-2} \cdots \frac{1}{2} \cdot \frac{\pi}{2}$
+* 若 $n$ 为奇数： $\frac{n-1}{n} \cdot \frac{n-3}{n-2} \cdots \frac{2}{3} \cdot 1$
+
+* 例题： $\int_0^\pi \cos^n x dx$
+* 要注意区间是 $[0, \pi]$。如果是奇次方，正负抵消为0；如果是偶次方，等于 $2$ 倍的 $[0, \frac{\pi}{2}]$。
+
+
+### 反常积分
+
+待补。
+
+## 微分方程
+
+### 微分方程的基本概念
+
+* 微分方程：含有未知函数及其导数（ $y', y'', \dots$ ）的方程。
+* 解：把函数代入方程，能使方程两边恒等的，就是这个方程的解。
+  * 通解：含有任意常数（ $C$ ），且常数个数等于方程阶数的解。
+  * 特解：不含任意常数（通常由初始条件确定）的解。
+
+#### 验证微分方程的解
+
+题目给你一个函数（通常是隐函数形式 $F(x,y)=0$ ），问它是不是某方程的解。
+
+方法：隐函数求导。
+
+例题：
+
+* 已知通解： $x^2 - xy + y^2 = C$
+* 求证方程： $(x-2y)y' = 2x - y$
+  * 对 $x^2 - xy + y^2 = C$ 两边同时对 $x$ 求导：
+
+$$2x - (1 \cdot y + x \cdot y') + 2y \cdot y' = 0$$
+
+  * 整理方程，把含 $y'$ 的项归一边：
+
+$$2x - y - xy' + 2yy' = 0$$
+
+$$(2y - x)y' = y - 2x$$
+
+#### 如何建立微分方程
+
+**微分方程的阶数（最高阶导数的次数） = 通解中独立任意常数的个数。**
+
+* 有 1 个 $C$，就要微分 1 次，得到一阶方程。
+* 有 2 个 $C$（如 $C_1, C_2$），就要微分 2 次，得到二阶方程。
+
+例题 1 ：
+
+* 已知： $(x+C)^2 + y^2 = 1$
+  * 求导： $2(x+C) + 2yy' = 0 \Rightarrow x+C = -yy'$ 。
+  * 消去 $C$ ：把求出来的 $x+C$ 直接代回原方程。
+
+$$(-yy')^2 + y^2 = 1$$
+
+  * 整理： $y^2 (y')^2 + y^2 = 1$ 。这就是所求的微分方程。
+
+例题 2 ：
+
+* 已知： $y = C_1 \sin 2x + C_2 \cos 2x$
+  * 求一阶导： $y' = 2C_1 \cos 2x - 2C_2 \sin 2x$
+  * 求二阶导： $y'' = -4C_1 \sin 2x - 4C_2 \cos 2x$
+  * 提取 $-4$，发现括号里正是原函数 $y$ 。
+
+$$y'' = -4(C_1 \sin 2x + C_2 \cos 2x)$$
+
+$$y'' = -4y$$
+
+  * 结果： $y'' + 4y = 0$。
+
+#### 几何应用
+
+根据题目描述列出等式，其中必须包含 $y'$。
+
+例题 1 ：
+
+* 切线的斜率等于该点横坐标的平方。
+  *  $y' = x^2$
+
+例题 2：
+
+* 法线与 $x$ 轴的交点 $Q$，线段 $PQ$ 被 $y$ 轴平分。
+  * 写出点 $P(x,y)$ 处的法线方程： $Y - y = -\frac{1}{y'}(X - x)$ 。
+  * 求点 $Q$（令 $Y=0$ ） ： $-y = -\frac{1}{y'}(X_Q - x) \Rightarrow X_Q = x + yy'$ 。所以 $Q(x+yy', 0)$ 。
+  * 利用“ $PQ$ 被 $y$ 轴平分”，说明中点的横坐标是 0
+
+$$\frac{x_P + x_Q}{2} = 0 \Rightarrow x + (x + yy') = 0$$
+
+  * $2x + yy' = 0$。
+
+#### 更多题目
+
+![87ea2ac0617807e4eb9e074028556712](https://github.com/user-attachments/assets/f9f176c4-9f52-41a7-9fc2-61cb53bfe386)
+
+### 变量可分离微分方程
+
+* 变量可分离：微分方程里通常混杂着 $x$（自变量）和 $y$（函数）以及 $y'$（导数）。
+* 可分离”，就是可以通过一系列操作，把方程彻底拆成两边：
+  * 等号左边： 全是 $y$ 和 $dy$（没有 $x$）
+  * 等号右边： 全是 $x$ 和 $dx$（没有 $y$）
+ 
+即：
+
+$$g(y) \, dy = f(x) \, dx$$
+
+然后等式两边挂上积分即可解出。
+
+#### 例题：
+
+1. 例题：直接分离
+
+$$\sqrt{1-x^2} y' = \sqrt{1-y^2}$$
+
+* 移项分类
+
+$$\frac{dy}{\sqrt{1-y^2}} = \frac{dx}{\sqrt{1-x^2}}$$
+
+* 挂上积分
+
+$$\int \frac{dy}{\sqrt{1-y^2}} = \int \frac{dx}{\sqrt{1-x^2}}$$
+
+* 公式得到
+
+$$\arcsin y = \arcsin x + C$$
+
+2. 例题：换元化简
+
+$$y' = (x+y)^2$$
+
+* 设： $u = x+y$
+* 求导： 两边对 $x$ 求导 $\Rightarrow u' = 1 + y'$ ，所以 $y' = u' - 1$ 。
+* 代回原方程：
+
+$$u' - 1 = u^2$$
+
+$$u' = u^2 + 1$$
+
+$$\frac{du}{dx} = u^2 + 1$$
+
+* 分离：
+
+$$\frac{du}{u^2+1} = dx$$
+
+$$\arctan u = x + C$$
+
+* 回代
+
+$$\arctan(x+y) = x + C$$
+
+#### 更多题目
+
+![607fd4e69e29aa5e6d588565c399735c](https://github.com/user-attachments/assets/e9d7f01f-da9a-4946-acc5-abba8779a7bc)
+
+![b61c0cd40d5cf0ec513a3f1389c86811](https://github.com/user-attachments/assets/e5c28a03-c656-47af-b631-f164c7561ab3)
+
+### 一阶线性微分方程组
+
+标准形式：
+
+$$y' + P(x)y = Q(x)$$
+
+* 一阶 ($y'$)：只有一阶导数，没有 $y''$。
+
+* 线性 ( $y$)： $y$ 和 $y'$ 都是一次方。
+
+* 系数： $y$ 前面的系数 $P(x)$ 和等号右边的 $Q(x)$ 只能是 $x$ 的函数（或者是常数）。
+
+**公式：**
+
+$$y = e^{-\int P(x)dx} \left[ \int Q(x) e^{\int P(x)dx} dx + C \right]$$
+
+#### 公式证明：常数变易法
+
+事实上 **常数变易法** 比套公式常用的多。
+
+1. 先解“齐次方程”
+
+忽略等号右边的 $Q(x)$ ，把方程看作是一个齐次方程：
+
+$$y' + P(x)y = 0$$
+
+* 分离变量： 
+
+$$\frac{dy}{dx} = -P(x)y$$
+
+$$\frac{dy}{y} = -P(x)dx$$
+
+* 两边积分：
+
+$$\ln y = -\int P(x)dx + C$$
+
+* 两边取指数 $e$，得到：
+
+$$y = C e^{-\int P(x)dx}$$
+
+2. 常数变易法
+
+把上面的常数 $C$ 变成关于 $x$ 的函数 $C(x)$ 。
+
+设 $y = C(x)e^{-\int P(x)dx}$ 。
+
+* 求导 $y'$：
+
+$$y' = C'(x)e^{-\int P(x)dx} + C(x) \cdot \left[ e^{-\int P(x)dx} \cdot (-P(x)) \right]$$
+
+容易发现： 
+
+$$C(x) \cdot \left[ e^{-\int P(x)dx} \cdot (-P(x)) \right]=P(x)y$$
+
+* 将 $y$ 和 $y'$ 代入原始方程 $y' + P(x)y = Q(x)$ 得到：
+
+$$C'(x)e^{-\int P(x)dx} = Q(x)$$
+
+3. 求出 $C(x)$
+
+* 反解出 $C'(x)$ ：
+
+$$C'(x) = Q(x)e^{\int P(x)dx}$$
+
+* 积分求 $C(x)$：
+
+$$C(x) = \int Q(x)e^{\int P(x)dx} dx + C$$
+
+* 得到最终通解：把算出来的 $C(x)$ 代回到第二阶段第1步设的式子 $y = C(x)e^{-\int P(x)dx}$ 中：
+
+$$y = e^{-\int P(x)dx} \left[ \int Q(x)e^{\int P(x)dx} dx + C \right]$$
+
+#### 简单例题
+
+$$y' - \frac{y}{x} = x^2$$
+
+* 找 P 和 Q
+
+$$P(x) = -\frac{1}{x}, \quad Q(x) = x^2$$
+
+* 算 $e^{\int P(x)dx}$
+
+$$\int P(x)dx = \int -\frac{1}{x} dx = -\ln x = \ln(x^{-1})$$
+
+$$e^{\ln(x^{-1})} = \frac{1}{x}$$
+
+* 把 $Q(x)$ 和刚才算出的 $\frac{1}{x}$ 乘起来积分：
+
+$$\int Q(x) \cdot \frac{1}{x} \, dx = \int x^2 \cdot \frac{1}{x} \, dx = \int x \, dx = \frac{1}{2}x^2$$
+
+* 最终结果
+
+$$y = \frac{1}{1/x} \cdot [\frac{1}{2}x^2 + C]$$
+
+$$y = x(\frac{1}{2}x^2 + C) = \frac{1}{2}x^3 + Cx$$
+
+#### 贝努利方程（Bernoulli Equation）
+
+* 形式： $y' + P(x)y = Q(x)y^n$
+  * 两边同除以 $y^n$ ：变成 $y^{-n}y' + P(x)y^{1-n} = Q(x)$。
+  * 换元：令 $z = y^{1-n}$ ，那么方程瞬间变回“一阶线性方程”。
+
+例题：
+
+$$y' + \frac{y}{x} = x^2 y^6$$
+
+* 除以 $y^6$ ： $y^{-6}y' + \frac{1}{x}y^{-5} = x^2$ 。
+* 换元：令 $z = y^{1-6} = y^{-5}$。
+  * 求导： $z' = -5y^{-6}y'$ $\Rightarrow$ $y^{-6}y' = -\frac{1}{5}z'$。
+* 代入： $-\frac{1}{5}z' + \frac{1}{x}z = x^2$。整理成标准型： $z' - \frac{5}{x}z = -5x^2$。
+* 按线性方程解出 $z$ ，最后把 $y^{-5}$ 换回来。
+
+#### 变上限积分方程变式
+
+把含有积分的方程两边同时求导，把它转化为我们熟悉的一阶线性微分方程，同时利用原方程求出初始条件。
+
+例题：
+
+$$\phi(x)\cos x + 2\int_0^x \phi(t)\sin t \, dt = x + 1$$
+
+* 先令 $x=0$ 代入原方程，求出 $\phi(0)$ 的值。这是确定常数 $C$ 的关键。
+
+$$\phi(0) \cdot \cos 0 + 2\int_0^0 \dots dt = 0 + 1$$
+
+$$\phi(0) \cdot 1 + 0 = 1$$
+
+* 两边求导，化为微分方程
+  * 左边第一项
+
+$$(\phi(x)\cos x)' = \phi'(x)\cos x + \phi(x)(-\sin x) = \phi'(x)\cos x - \phi(x)\sin x$$
+
+  * 左边第二项
+
+$$(2\int_0^x \phi(t)\sin t \, dt)' = 2\phi(x)\sin x$$
+
+  * 右边：
+
+$$(x+1)' = 1$$
+  
+  * 最终得到：
+
+$$[\phi'(x)\cos x - \phi(x)\sin x] + 2\phi(x)\sin x = 1$$
+
+$$\phi'(x)\cos x + \phi(x)\sin x = 1$$
+
+* 求解一阶线性微分方程
+  * 化解为标准形式
+
+$$\phi'(x) + \tan x \cdot \phi(x) = \sec x$$
+
+  * $P(x) = \tan x$
+  * $Q(x) = \sec x$
+  * $e^{\int P(x)dx} = e^{\int \tan x dx} = e^{\ln|\sec x|} = \sec x$
+  * $$\phi(x) = \frac{1}{\sec x} \left[ \int \sec x \cdot \sec x \, dx + C \right]$$
+  * $$\phi(x) = \cos x \left[ \int \sec^2 x \, dx + C \right]$$
+  * $$\phi(x) = \cos x (\tan x + C)$$
+  * $$\phi(x) = \sin x + C\cos x$$
+
+最终答案：
+
+$$\phi(x) = \sin x + \cos x$$
+
+#### 更多题目
+
+![918a3ec7a686e47dfa0b9ceaf21d2261](https://github.com/user-attachments/assets/6a6e84a5-d5d3-4476-978b-5a0e31d84db8)
+
+![30b0d5aa6a9c2bef990c6db746c10dc2](https://github.com/user-attachments/assets/fe1ea0f9-36a4-45b4-b368-454e6497f205)
+
+
+### 可降阶的高阶微分方程
+
+“高阶”，就是方程里出现了 $y''$ （二阶导）甚至更高阶的导数。
+
+所谓的“降阶”，就是通过换元法，把二阶方程变成我们熟悉的一阶方程（ $y'$ ）来解。
+
+#### 缺 $y$ 型
+
+形式： 
+
+$$F(x, y', y'') = 0$$
+
+解法：令 $y' = p$，则 $y'' = p'$
+
+例题：
+
+$$y'' = \frac{2xy'}{x^2+1}$$
+
+* 换元： 令 $y' = p$ ，那么 $y'' = p'$ （即 $\frac{dp}{dx}$ ）。
+* 代入：
+
+$$p' = \frac{2x}{x^2+1}p$$
+
+$$\frac{dp}{p} = \frac{2x}{x^2+1} dx$$
+
+* 积分： $\ln |p| = \ln(x^2+1) + C_1 \Rightarrow p = C_1(x^2+1)$。
+* 还原再积：
+
+$$y' = C_1(x^2+1)$$
+
+$$y = \int C_1(x^2+1) dx = C_1(\frac{1}{3}x^3 + x) + C_2$$
+
+#### 缺 $x$ 型
+
+形式： 
+
+$$F(y, y', y'') = 0$$
+
+解法：令 $y' = p$ ，但注意 $y'' = p \cdot \frac{dp}{dy}$
+
+(因为没有 $x$ ，所以导数要通过链式法则转成对 $y$ 的导数)
+
+例题：
+
+$$y^3 y'' = 1$$
+
+* 换元： 令 $y' = p$，则 $y'' = p \frac{dp}{dy}$。
+* 代入：
+
+$$y^3 \left( p \frac{dp}{dy} \right) = 1$$
+
+* 分离变量积分：
+
+$$p \, dp = \frac{1}{y^3} \, dy$$
+
+$$\int p \, dp = \int y^{-3} \, dy$$
+
+$$\frac{1}{2}p^2 = -\frac{1}{2}y^{-2} + C_1$$
+
+* 开方还原： 求出 $p$ （即 $\frac{dy}{dx}$ ），然后再次分离变量积分求出 $y$ 。
+
+#### 直接积分
+
+特征： 方程右边只有 $x$。
+
+形式： 
+
+$$y^{(n)} = f(x)$$
+
+例题：
+
+$$y'' = x$$
+
+* 积第一次：  $y' = \int x \, dx = \frac{1}{2}x^2 + C_1$
+* 积第二次：  $y = \int (\frac{1}{2}x^2 + C_1) \, dx = \frac{1}{6}x^3 + C_1 x + C_2$
+
+#### 更多题目
+
+![ee3d000a0426a54206f1fd7b0dc5823e](https://github.com/user-attachments/assets/a555966a-18c8-43ea-93c8-13dfdbe3b4d3)
+
