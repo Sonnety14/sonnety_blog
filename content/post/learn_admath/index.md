@@ -46,34 +46,34 @@ tags:
 
 **第一组：“x”族（线性近似）**
 
-1. $\\sin x \\sim x$  
-2. $\\tan x \\sim x$  
-3. $\\arcsin x \\sim x$  
-4. $\\arctan x \\sim x$  
-5. $\\ln(1+x) \\sim x$  
-6. $e^x \- 1 \\sim x$  
+1. $\sin x \sim x$  
+2. $\tan x \sim x$  
+3. $\arcsin x \sim x$  
+4. $\arctan x \sim x$  
+5. $\ln(1+x) \sim x$  
+6. $e^x \- 1 \sim x$  
 7. **幂指推广：**  
-   * $a^x \- 1 \\sim x \\ln a$  
-   * $\\log\_a(1+x) \\sim \\frac{x}{\\ln a}$
+   * $a^x \- 1 \sim x \ln a$  
+   * $\log\_a(1+x) \sim \frac{x}{\ln a}$
 
 **第二组：幂函数与根式族（伯努利推广）**
 
-源自二项式定理 $(1+x)^\\mu$ 的近似。
+源自二项式定理 $(1+x)^\mu$ 的近似。
 
-8. $(1+x)^\\mu \- 1 \\sim \\mu x$ **(万能公式)**  
-   * $\\sqrt{1+x} \- 1 \\sim \\frac{1}{2}x$  
-   * $\\sqrt\[3\]{1+x} \- 1 \\sim \\frac{1}{3}x$  
-   * $\\frac{1}{1+x} \- 1 \\sim \-x$  
-   * $\\frac{1}{\\sqrt{1+x}} \- 1 \\sim \-\\frac{1}{2}x$
+8.  $(1+x)^\mu \- 1 \sim \mu x$ **(万能公式)**  
+   * $\sqrt{1+x} \- 1 \sim \frac{1}{2}x$  
+   * $\sqrt\[3\]{1+x} \- 1 \sim \frac{1}{3}x$  
+   * $\frac{1}{1+x} \- 1 \sim \-x$  
+   * $\frac{1}{\sqrt{1+x}} \- 1 \sim \-\frac{1}{2}x$
   
 **第三组：高阶族（泰勒展开的进阶）**
 
-9. $1 \- \\cos x \\sim \\frac{1}{2}x^2$ **(频率较高)**  
-10. $x \- \\sin x \\sim \\frac{1}{6}x^3$  
-11. $\\tan x \- x \\sim \\frac{1}{3}x^3$  
-12. $\\arcsin x \- x \\sim \\frac{1}{6}x^3$  
-13. $x \- \\arctan x \\sim \\frac{1}{3}x^3$  
-14. $x \- \\ln(1+x) \\sim \\frac{1}{2}x^2$
+9. $1 \- \cos x \sim \frac{1}{2}x^2$ **(频率较高)**  
+10. $x \- \sin x \sim \frac{1}{6}x^3$  
+11. $\tan x \- x \sim \frac{1}{3}x^3$  
+12. $\arcsin x \- x \sim \frac{1}{6}x^3$  
+13. $x \- \arctan x \sim \frac{1}{3}x^3$  
+14. $x \- \ln(1+x) \sim \frac{1}{2}x^2$
 
 
 ### 曲率与曲率半径
