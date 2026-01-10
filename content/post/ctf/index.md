@@ -509,13 +509,13 @@ ret
 
 那么，我们如果把最后 8 个 `B`，换成 **后门函数（backdoor）** 的真实地址，CPU 就会跳进去帮我们找到 Shell。
 
-#### gdb 调试找到 offset
+#### pwndbg 调试找到 offset
 
-用 gdb 找到「覆盖到返回地址 RIP/EIP 需要的字节数（offset）」
+用 pwndbg 找到「覆盖到返回地址 RIP/EIP 需要的字节数（offset）」
 
 自己算也可以。
 
-1. 启动 pwngdb
+1. 启动 pwndbg
 
 <img width="679" height="127" alt="image" src="https://github.com/user-attachments/assets/4efc4b9e-4efa-4ee2-939b-49861699ba45" />
 
@@ -565,7 +565,7 @@ ret
 
 <img width="507" height="72" alt="image" src="https://github.com/user-attachments/assets/7376ffdc-142f-4367-8e48-44d2284c71b9" />
 
-#### 例题 1：rip
+##### 例题 1：rip
 
 [BUUCTF 题目链接](https://buuoj.cn/challenges#rip)
 
@@ -621,7 +621,7 @@ if __name__ == "__main__":
     main()
 ```
 
-#### 例题 2：warmup_csaw_2016 1
+##### 例题 2：warmup_csaw_2016 1
 
 [BUU CTF 题目链接](https://buuoj.cn/challenges#warmup_csaw_2016)
 
@@ -675,7 +675,7 @@ if __name__ == "__main__":
 
 ```
 
-#### 例题 3：jarvisoj_level0_1
+##### 例题 3：jarvisoj_level0_1
 
 [BUU CTF 题目链接](https://buuoj.cn/challenges#jarvisoj_level0)
 
@@ -735,7 +735,7 @@ buf_addr = int(io.recvline().strip(),16)
 
 然后用 cyclic 找 offset，`payload = shellcode.ljust(offset, b"\x00") + p32(buf_addr)`。
 
-#### 例题 1：wdb_2018_3rd_soEasy
+##### 例题 1：wdb_2018_3rd_soEasy
 
 [BUU CTF 题目链接](https://buuoj.cn/challenges#wdb_2018_3rd_soEasy)
 
