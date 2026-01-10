@@ -473,7 +473,7 @@ ret
   * 还记得 `call    add`自动把返回地址入栈吗，当 `rbp` 已经弹出，这个返回地址就露出了。
   * `ret` 会从栈顶弹出一个地址（返回地址），并跳过去执行。
 
-#### 栈溢出
+#### 栈溢出 Ret2text
 
 栈溢出的本质，其实是一场**“方向的碰撞”**。
 
@@ -710,3 +710,45 @@ if __name__ == "__main__":
 
 ```
 
+#### Ret2shellcode
+
+先判断“这题能不能 ret2shellcode”，通常安全保护如下：
+
+* NX unknown/disabled、
+* No Canary Found
+
+和 Ret2text 差别不大，依然是 dbg 得到 offset，然后覆盖到后门函数。
+
+不同的是，后门函数在 IDA 中并不存在，通常是 nc 实例得到一个 16 进制数。
+
+```
+Hei,give you a gift->0xffffxxxx
+```
+
+把这个十六进制解析成整数，就是 payload 里最后要写进去的返回地址。
+
+```
+io.recvuntil(b"Hei,give you a gift->")
+buf_addr = int(io.recvline().strip(),16)
+# io.recvline().strip()指输入这一行字符串并去掉换行，16指16进制
+```
+
+然后用 cyclic 找 offset，`payload = shellcode.ljust(offset, b"\x00") + p32(buf_addr)`。
+
+#### 例题 1：wdb_2018_3rd_soEasy
+
+[BUU CTF 题目链接](https://buuoj.cn/challenges#wdb_2018_3rd_soEasy)
+
+安全防护如下，注意 **arch: i386-32-little！**
+
+<img width="467" height="177" alt="image" src="https://github.com/user-attachments/assets/dc2ea93c-282d-4cbe-a8bf-42de21b80086" />
+
+在 cyclic 获取 offset 时：
+
+<img width="1217" height="363" alt="image" src="https://github.com/user-attachments/assets/c79d005d-ed62-4f83-9e99-de6366c12330" />
+
+注意：Invalid address 0x61616174，**代表 CPU 的执行流已经跳到一个无效地址（也就是 ret 已经生效，EIP 指向垃圾地址）。**
+
+<img width="305" height="66" alt="image" src="https://github.com/user-attachments/assets/75245759-08c6-413a-9e9d-6b81154f01f7" />
+
+所以我们不应该像之前的题目一样执行 `x/wx $esp`，而应该执行 `x/wx $eip`。
