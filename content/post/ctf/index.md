@@ -1,4 +1,3 @@
-<img width="379" height="32" alt="image" src="https://github.com/user-attachments/assets/62b69c1b-428f-455d-9c38-b0fa927e1e3d" />---
 title: "CTF 学习日志 0x00 版"
 description: "如有错误请指出"
 date: 2025-12-17T00:00:00+08:00
