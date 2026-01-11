@@ -712,28 +712,22 @@ if __name__ == "__main__":
 
 #### Ret2shellcode
 
+shellcode 是一段“机器码字节序列”（比如 x86-64 指令），它自己就能完成系统调用：`execve("/bin/sh",0,0)`，从而起 shell。
+
+简单说，`shellcode = asm(shellcraft.sh())` 的含义就是，生成一段打开 `/bin/sh` 的机器码。
+
 先判断“这题能不能 ret2shellcode”，通常安全保护如下：
 
 * NX unknown/disabled、
 * No Canary Found
 
-和 Ret2text 差别不大，依然是 dbg 得到 offset，然后覆盖到后门函数。
+和 Ret2text 差别不大，依然是 dbg 得到 offset，我们使用 `shellcode.ljust(offset, b"\x90")` 将 shellcode 填充到长度为 offset，`\x90` 是 x86 的 NOP 指令（什么都不做）.
 
-不同的是，后门函数在 IDA 中并不存在，通常是 nc 实例得到一个 16 进制数。
+那么这一段的含义就是，让 payload 的前 offset 字节 = `“shellcode + 一堆 NOP”`，刚好填到返回地址的位置。
 
-```
-Hei,give you a gift->0xffffxxxx
-```
+读取 payload 的那个 buf 地址，填入后面返回地址，就会执行 shellcode。
 
-把这个十六进制解析成整数，就是 payload 里最后要写进去的返回地址。
-
-```
-io.recvuntil(b"Hei,give you a gift->")
-buf_addr = int(io.recvline().strip(),16)
-# io.recvline().strip()指输入这一行字符串并去掉换行，16指16进制
-```
-
-然后用 cyclic 找 offset，`payload = shellcode.ljust(offset, b"\x00") + p32(buf_addr)`。
+`payload = shellcode.ljust(offset, b"\x00") + p32(buf_addr)`。
 
 ##### 例题 1：wdb_2018_3rd_soEasy
 
@@ -774,3 +768,4 @@ def main():
 if __name__ == "__main__":
     main()
 ```
+
