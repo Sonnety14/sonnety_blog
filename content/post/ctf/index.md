@@ -1,5 +1,5 @@
 ---
-title: "CTF 学习日志 0x00 版"
+title: "CTF-pwn 学习日志 0x00 版"
 description: "如有错误请指出"
 date: 2025-12-17T00:00:00+08:00
 image: ctf.png
@@ -91,7 +91,7 @@ ANSI_COLOR="1;31
 
 在提供的代码中，往往没有访问根目录的权限，而当我们执行 `system("/bin/sh")` 后，我们就可以在根目录查看 flag。
 
-### x86环境，初识汇编语言 1
+## x86环境，初识汇编语言 1
 
 以 `C++` 为代表的高级语言，与汇编语言有很大的区别，其中有个区别在于 **如何传递参数** 。
 
@@ -112,7 +112,7 @@ int main(){
 
 （寄存器：一个位于 CPU 内的储存结构，里边可以储存一些变量）
 
-#### 寄存器
+### 寄存器
 
 执行 `gcc -S main.c -o main.s -masm=intel`，我们的 C 语言源码 `main.c` 会被编译，并输出等价的 intel 语法的汇编语言源码在 `main.s` 中
 
@@ -219,7 +219,7 @@ printf 先分析 `rdi`寄存器，`rdi = "数字是: %d"` 的地址，然后分�
 R8, R9, R10, R11, R12, R13, R14, R15
 ```
 
-#### 调用函数与系统库
+### 调用函数与系统库
 
 容易观察到 `call printf@PLT`，后面有一个 `@PLT`，指 `Procedure Linkage Table（过程链接表）`。
 
@@ -256,7 +256,7 @@ R8, R9, R10, R11, R12, R13, R14, R15
 
 这带来了一个经典的攻击技巧：**Ret2Libc（Return to Libc）** 。
 
-##### Ret2Libc
+#### Ret2Libc
 
 如果我想调用 `system("/bin/sh")`，但不知道 `system` 今天的真实地址在哪里（因为 ASLR），你需要做两步：
 
@@ -269,7 +269,7 @@ R8, R9, R10, R11, R12, R13, R14, R15
 
 现在你算出 `system` 的地址了，就可以控制程序跳转过去了。
 
-##### GOT 覆写攻击
+#### GOT 覆写攻击
 
 攻击者的操作：
 
@@ -279,7 +279,7 @@ R8, R9, R10, R11, R12, R13, R14, R15
 4. PLT 调用错误的地址，执行错误命令。
 5. 结果：本该打印东西，结果却执行了命令（Get Shell）。
 
-#### 汇编里的返回值
+### 汇编里的返回值
 
 观察：
 
@@ -328,7 +328,7 @@ call    printf@PLT
 3. 所以，我们必须把 `eax` 设置为 0。
 4. 如果我们不把 `eax` 清零，而 `eax` 里正好残留了一个垃圾数据（比如 5），printf 就会误以为有 5 个浮点数，跑去读取浮点寄存器，这有可能会导致程序崩溃。
 
-### x86环境，初识汇编语言 2
+## x86环境，初识汇编语言 2
 
 ```
 #include<stdio.h>
@@ -386,7 +386,7 @@ add:
     ret
 ```
 
-#### 存储逻辑，栈
+### 存储逻辑，栈
 
 对于每一个函数调用过程，都会有一个属于其的栈空间。
 
@@ -477,7 +477,7 @@ ret
   * 还记得 `call    add`自动把返回地址入栈吗，当 `rbp` 已经弹出，这个返回地址就露出了。
   * `ret` 会从栈顶弹出一个地址（返回地址），并跳过去执行。
 
-#### 栈溢出 Ret2text
+### 栈溢出 Ret2text
 
 栈溢出的本质，其实是一场**“方向的碰撞”**。
 
@@ -569,7 +569,7 @@ ret
 
 <img width="507" height="72" alt="image" src="https://github.com/user-attachments/assets/7376ffdc-142f-4367-8e48-44d2284c71b9" />
 
-##### 例题 1：rip
+#### 例题 1：rip
 
 [BUUCTF 题目链接](https://buuoj.cn/challenges#rip)
 
@@ -625,7 +625,7 @@ if __name__ == "__main__":
     main()
 ```
 
-##### 例题 2：warmup_csaw_2016 1
+#### 例题 2：warmup_csaw_2016 1
 
 [BUU CTF 题目链接](https://buuoj.cn/challenges#warmup_csaw_2016)
 
@@ -679,7 +679,7 @@ if __name__ == "__main__":
 
 ```
 
-##### 例题 3：jarvisoj_level0_1
+#### 例题 3：jarvisoj_level0_1
 
 [BUU CTF 题目链接](https://buuoj.cn/challenges#jarvisoj_level0)
 
@@ -714,7 +714,7 @@ if __name__ == "__main__":
 
 ```
 
-#### shellcode && Ret2shellcode
+### shellcode && Ret2shellcode
 
 shellcode 是一段“机器码字节序列”（比如 x86-64 指令），它自己就能完成系统调用：`execve("/bin/sh",0,0)`，从而起 shell。
 
@@ -786,7 +786,7 @@ Ph0666TY1131Xh333311k13XjiV11Hc1ZXYf1TqIHf9kDqW02DqX0D1Hu3M2G0Z2o4H0u0P160Z0g7O0
 PYIIIIIIIIIIQZVTX30VX4AP0A3HH0A00ABAABTAAQ2AB2BB0BBXP8ACJJISZTK1HMIQBSVCX6MU3K9M7CXVOSC3XS0BHVOBBE9RNLIJC62ZH5X5PS0C0FOE22I2NFOSCRHEP0WQCK9KQ8MK0AA 
 ```
 
-##### 例题 1：wdb_2018_3rd_soEasy
+#### 例题 1：wdb_2018_3rd_soEasy
 
 [BUU CTF 题目链接](https://buuoj.cn/challenges#wdb_2018_3rd_soEasy)
 
@@ -826,7 +826,7 @@ if __name__ == "__main__":
     main()
 ```
 
-##### 例题 2：ciscn_2019_n_5
+#### 例题 2：ciscn_2019_n_5
 
 [BUU CTF 题目链接](https://buuoj.cn/challenges#ciscn_2019_n_5)
 
@@ -938,7 +938,7 @@ if  __name__ == "__main__":
     main()
 ```
 
-##### 例题 3：mrctf2020_shellcode
+#### 例题 3：mrctf2020_shellcode
 
 [BUU CTF 题目链接](https://buuoj.cn/challenges#mrctf2020_shellcode)
 
@@ -998,7 +998,7 @@ if __name__ == "__main__":
     main()
 ```
 
-##### 例题 4：mrctf2020_shellcode_revenge
+#### 例题 4：mrctf2020_shellcode_revenge
 
 [BUU CTF 题目链接](https://buuoj.cn/challenges#mrctf2020_shellcode_revenge)
 
@@ -1101,3 +1101,81 @@ def main():
 if __name__ == "__main__":
     main()
 ```
+
+
+### Canary 保护原理及绕过
+
+在 “常见安全保护中”，我们曾提到：
+
+> `Canary found`：有栈保护，溢出覆盖返回地址前会先覆盖 canary，函数返回时会检查。
+
+Canary 栈保护的核心思想，就是在函数的栈上放一段“哨兵值”（canary），函数返回前检查它有没有被覆盖；被覆盖就说明发生了溢出，直接终止程序。
+
+在 **无 Canary 保护** 的栈上，大概形似：
+
+```
+高地址
++------------------------+
+| 返回地址 RET           |  <-- 函数 ret 会跳到这里
++------------------------+
+| 保存的 RBP（旧栈底）    |
++------------------------+
+| 其他局部变量(可选)      |
++------------------------+
+| buf[64]                |  <-- 溢出从这里开始往上“顶”
++------------------------+
+低地址
+
+```
+
+在 **有 Canary 保护** 的栈上，大概形似：
+
+```
+高地址
++------------------------+
+| 返回地址 RET           |
++------------------------+
+| 保存的 RBP（旧栈底）    |
++------------------------+
+| Canary（栈保护值）      |  <-- 夹在中间
++------------------------+
+| 其他局部变量(可选)      |
++------------------------+
+| buf[64]                |
++------------------------+
+低地址
+```
+
+而函数返回时会做以下检查：
+
+* 取出栈上的 canary
+* 和“原始 canary”比较 （存储在 *线程本地存储 TLS（Thread-Local Storage）* 上）
+* 不相等就 `__stack_chk_fail()` 直接崩溃
+
+
+那么思路就很明显了：写到 RET 前必然先写到 Canary，除非你能把 Canary 写成原样，也就是 **泄露 Canary**。
+
+泄露 Canary 的方式有很多种。
+
+### 覆盖 canary 低字节泄露
+
+Canary 设计为以字节 `\x00` 结尾，本意是为了保证 Canary 可以截断字符串，即程序遇到 `printf("%s", buf)`、`puts(buf)` 这种按字符串输出的函数时，输出会在遇到 `\x00` 就停下，不容易“顺带把后面的栈内容打印出来”。
+
+泄露栈中的 Canary 的思路是覆盖 Canary 的低字节，来打印出剩余的 Canary 部分。
+
+这种利用方式需要存在合适的输出函数，并且可能需要 **第一溢出** 泄露 Canary，之后 **再次溢出** 控制执行流程。
+
+假设栈上布局为：`buf | canary(8字节) | saved rbp | ret`。
+
+canary 形似：`00 aa bb cc dd ee ff 11`。
+
+如果有 `puts(buf)`，正常情况下输出读到 canary 的第一个字节就是 00，就停了，
+
+但如果把 00 改掉，比如改成 'A'（41），那么 canary 形似：`41 aa bb cc dd ee ff 11`，输出函数就会继续把 canary 后面的字节 `aa bb cc ...` 也当成“字符串内容”输出出来。
+
+（直到某个地方再次遇到 \x00 才停止）
+
+同时 canary 坏了，所以这次程序崩溃，再拿正确的 Canary 溢出第二次，这就是二次溢出。
+
+### 格式化字符串漏洞
+
