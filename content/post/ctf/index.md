@@ -1103,7 +1103,7 @@ if __name__ == "__main__":
 ```
 
 
-### Canary 保护原理及绕过
+## Canary 保护原理及绕过
 
 在 “常见安全保护中”，我们曾提到：
 
@@ -1155,9 +1155,18 @@ Canary 栈保护的核心思想，就是在函数的栈上放一段“哨兵值�
 
 那么思路就很明显了：写到 RET 前必然先写到 Canary，除非你能把 Canary 写成原样，也就是 **泄露 Canary**。
 
-泄露 Canary 的方式有很多种。
+而泄露 Canary 的方式有很多种，下面将一一介绍。
 
 ### 覆盖 canary 低字节泄露
+
+常见叫法有很多种：
+
+* Canary byte overwrite leak（覆盖 canary 低字节泄露）
+* Null-byte overwrite leak / off-by-one leak（空字节覆盖/Off-by-one 泄露）
+* String over-read leak（字符串越界读取泄露）
+* puts 泄露 canary、通过 %s 泄露 canary
+
+总而言之是一个东西。
 
 Canary 设计为以字节 `\x00` 结尾，本意是为了保证 Canary 可以截断字符串，即程序遇到 `printf("%s", buf)`、`puts(buf)` 这种按字符串输出的函数时，输出会在遇到 `\x00` 就停下，不容易“顺带把后面的栈内容打印出来”。
 
