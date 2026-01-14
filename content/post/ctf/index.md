@@ -1395,6 +1395,10 @@ v8 = __readfsqword(0x28u);
 
 <img width="404" height="98" alt="8de4a9b68281e79cd5acecd4a54b7683" src="https://github.com/user-attachments/assets/a4658e16-54f5-45b4-8bfb-9b5caedc72d8" />
 
+可见 `stack_k = 46`（通过开头是栈地址 `0x7ffd…` 以及 16 字节对齐，结尾通常是 `...0`, `...10`, `...f0`, `...e0` 判断）
+
+然后 pwndbg 调试一下，找到 shellcode 在 `stack_addr - 192` 位。
+
 ```
 # written by Sonnety
 from pwn import *
@@ -1425,6 +1429,3 @@ def main():
 if __name__ == "__main__":
     main()
 ```
-
-可见 `stack_k = 46`（通过开头是栈地址 `0x7ffd…` 以及 16 字节对齐，结尾通常是 `...0`, `...10`, `...f0`, `...e0` 判断）
-
