@@ -1577,3 +1577,12 @@ def main():
 if __name__ == "__main__":
     main()
 ```
+
+### ROP 链基础
+
+ROP（Return Oriented Programming）本质是：
+
+通过溢出控制**返回地址 EIP**，把下一步要返回到哪里、参数是什么都提前摆在栈上，从而把多个调用串起来。
+
+当 NX 保护启用，栈不可执行，我们就很容易用到 ROP链 去调用已有的或 libc函数 进行。
+
