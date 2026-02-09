@@ -1580,9 +1580,85 @@ if __name__ == "__main__":
 
 ### ROP 链基础
 
-ROP（Return Oriented Programming）本质是：
+在开启了 NX 保护，栈上的数据变得“不可执行”时，ROP 链是解题的主要思路。
+
+ROP（Return Oriented Programming）的本质是：
 
 通过溢出控制**返回地址 EIP**，把下一步要返回到哪里、参数是什么都提前摆在栈上，从而把多个调用串起来。
 
-当 NX 保护启用，栈不可执行，我们就很容易用到 ROP链 去调用已有的或 libc函数 进行。
+既然我们不能自己写代码执行，那就利用程序段（.text）或库函数（libc）中原本就存在的代码片段。
+
+这些片段通常以 `ret` 指令结尾，被称为 Gadgets。
+
+* Gadgets: 比如 `pop rdi; ret`。这条指令的作用是将栈顶数据弹出到 `rdi` 寄存器，然后返回。
+* Chain: 通过精心构造栈布局，让 `ret` 指令不断连接不同的 Gadgets，像链条一样执行一连串操作。
+
+
+### Ret2libc
+
+> 前文提到 ASLR，PLT，GOT 可复习。
+
+在 ROP 链的基础上，我们不跳去执行栈上的代码，而是在跳转执行 C 标准库（libc.so）中的函数，最后 `system("\bin\sh")`。
+
+但是在 ASLR 的基础下，libc 在内存中的基地址每次运行都是随机化的，但是 **函数在 libc 库中的偏移是固定的**。
+
+如果我们能够泄露出某个执行过的函数的真实地址（在 GOT 表上），我们就可以反推 base_libc。
+
+紧接着就可以配合固定的偏移量得到 `system` 的真实地址。
+
+正常执行程序时，栈上逻辑形似：
+
+```
+内存地址         数据内容              逻辑含义
+      | ...       |   | ...         |
+RSP ->| 0x7fff... |   | 0x400c83    |  <-- ret 
+      | 0x7fff... |   | 0x400795    |  <-- main_addr (返回地址)
+      | ...       |   | ...         |
+```
+
+也就是说我们需要构造第一个 payload，以 64 位为例，形似：
+
+```
+payload1 = flat([
+    b'A' * offset,
+    pop_rdi_ret,
+    puts_got,      # rdi = puts_got
+    puts_plt,      # call puts
+    main_addr      # return to main
+])
+```
+
+此时 payload 在栈上表示如下（上低下高）：
+
+```
+内存地址         数据内容              逻辑含义
+      | ...       |   | ...         |
+RSP ->| 0x7fff... |   | 0x400c83    |  <-- pop_rdi_ret (Gadget地址)
+      | 0x7fff... |   | 0x601018    |  <-- puts_got (作为参数的数据)
+      | 0x7fff... |   | 0x4006e0    |  <-- puts_plt (函数地址)
+      | 0x7fff... |   | 0x400795    |  <-- main_addr (返回地址)
+      | ...       |   | ...         |
+```
+
+在执行时，程序发生了以下变化：
+
+1. 触发 ROP
+
+执行 `ret`，弹出栈顶数据给 `RIP`，即 pop_rdi_ret。
+
+程序跳转到了我们的 gadget 开始执行。
+
+2. 执行 Gadget
+
+`pop rdi` 弹出当前栈顶的数据，放入 `RDI` 寄存器，即 puts_got。
+
+`ret` 弹出栈顶数据给 `RIP`，即 puts_plt。
+
+程序执行 `puts`，输出 `RDI` 寄存器中的数据，打印出 `puts` 的真实地址。
+
+3.puts 函数返回
+
+`ret` 弹出栈顶数据给 `RIP`，即 main_addr。
+
+重新从 main 开始运行。我们获得了第二次输入的机会。
 
