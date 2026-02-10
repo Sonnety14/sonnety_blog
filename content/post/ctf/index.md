@@ -1644,6 +1644,8 @@ if __name__ == "__main__":
 
 ### Ret2libc
 
+[libc 查询](https://libc.blukat.me/)
+
 > 前文提到 ASLR，PLT，GOT 可复习。
 
 在 ROP 链的基础上，我们不跳去执行栈上的代码，而是在跳转执行 C 标准库（libc.so）中的函数，最后 `system("\bin\sh")`。
@@ -1725,6 +1727,8 @@ RSP ->| 0x7fff... |   | 0x400c83    |  <-- pop_rdi_ret (Gadget地址)
 <img width="384" height="57" alt="883a364344a08da7b1120df03634fd9f" src="https://github.com/user-attachments/assets/44757be5-3929-4bc2-8d03-8b13a286bcfc" />
 
 <img width="525" height="252" alt="88f295a69f4ee40ffdb47c15bef8d760" src="https://github.com/user-attachments/assets/93cd5e46-4900-426c-aac9-063361191418" />
+
+<img width="481" height="163" alt="image" src="https://github.com/user-attachments/assets/9df3c2cb-691e-49b3-95d5-48829b332fcd" />
 
 ```
 # written by Sonnety
