@@ -1965,3 +1965,42 @@ if __name__ == "__main__":
     main()
 
 ```
+
+## SROP
+
+当我们做 ROP 题目时，偶尔发现找 `pop rdi; ret` 很容易，但是找 `pop rdx; ret` 往往不简单。
+
+如果题目可用的 gadget 少的可怜，我们传统的 ROP 就不可用了，需要考虑 SROP。
+
+SROP (Sigreturn Oriented Programming) 是一种非常强大 ROP 的变种，它使一次性控制所有的 CPU 寄存器成为可能。
+
+### Unix 的 signal 处理
+
+在 unix 和 linux 中，当进程收到一个信号，内核会暂停当前程序的执行，转而去执行信号处理函数。
+
+在这个“上下文切换”的过程中，内核为了保证处理完信号后能恢复原状，会把当前 CPU 里所有的寄存器状态（rax, rdi, rsi, rip, rsp 等等）一股脑地全部压入栈中。
+
+这块保存在栈上的数据结构，被称为 Signal Frame（信号帧）。
+
+当信号处理函数执行完毕后，程序会调用一个特殊的系统调用：`sys_sigreturn`，从栈上把那个 Signal Frame 里的数据原封不动地弹回各个寄存器中，恢复现场。
+
+### 攻击步骤
+
+**`sys_sigreturn` 会盲目地相信栈上的数据，并把它们塞进寄存器。**
+
+那如果我们在栈溢出时，在栈上伪造一个我们自己精心设计的 Signal Frame 呢？
+
+1. 栈溢出：利用溢出漏洞，把一段伪造的 Signal Frame 写入栈中。在这个伪造的结构里，我们可以把 `rip` 设置为 `syscall` 的地址，把 `rax` 设置为 59 (代表 `execve`)，把 `rdi` 设置为 `/bin/sh` 的地址等等。
+
+2. 触发 `sigreturn`：在覆盖返回地址时，我们让程序去执行 `sys_sigreturn` 这个系统调用。
+
+3. 劫持执行流：内核收到 sigreturn 请求后，会读取我们伪造的 Signal Frame。瞬间，所有的寄存器都被赋予了我们想要的值。
+
+最终，我们的寄存器状态如下：
+
+* `rax` = 59 （`execve`）
+* `rdi` = "/bin/sh" 所在的地址
+* `rsi` = 0 （没有附加参数）
+* `rdx` = 0 （没有环境变量）
+* `rip` = syscall 指令的地址 （把这些数据提交给内核）
+
