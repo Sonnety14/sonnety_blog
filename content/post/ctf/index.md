@@ -41,6 +41,8 @@ ANSI_COLOR="1;31
 
 [buuctf之pwn题(持续更新)](https://www.z1r0.top/2022/02/22/buuctf%E4%B9%8Bpwn%E9%A2%98-%E6%8C%81%E7%BB%AD%E6%9B%B4%E6%96%B0/)
 
+[SROP 攻击原理与例题解析](https://www.anquanke.com/post/id/217081)
+
 ## 安全保护检查
 
 设某道题附加可执行文件 ciscn 。
