@@ -2,7 +2,7 @@
 title: "CTF 杂题乱写 0x00 版"
 description: "BUU CTF杂题乱写，如有错误请指出"
 date: 2026-2-16T00:00:00+08:00
-image: ctf_q1.png
+image: ctf_q1.jpg
 math: true
 license: 
 hidden: false
