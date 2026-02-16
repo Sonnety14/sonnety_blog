@@ -1,7 +1,7 @@
 ---
-title: "CTF 杂题乱写 0x00 版"
-description: "BUU CTF杂题乱写，如有错误请指出"
-date: 2026-2-16T00:00:00+08:00
+title: "CTF-pwn 学习日志 0x00 版"
+description: "如有错误请指出"
+date: 2026-02-16T00:00:00+08:00
 image: ctf_q1.jpg
 math: true
 license: 
@@ -12,6 +12,7 @@ categories:
     - ctf
 tags:
     - ctf
+    
 ---
 
 BUU CTF 登录之后，题目链接是对的，没有登录就直接跳转搜索了好像。
