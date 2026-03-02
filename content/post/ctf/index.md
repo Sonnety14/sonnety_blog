@@ -2012,8 +2012,12 @@ SROP (Sigreturn Oriented Programming) 是一种非常强大 ROP 的变种，它�
     frame2.rdi = binsh_addr
     frame2.rsi = 0
     frame2.rdx = 0
+#   frame2.rsp = 
+#	frame2.rbp = 
     frame2.rip = syscall_ret
 ```
+
+需要注意的是，我们的 frame.rip 必须指向 syscall 所在的某个地址，但是关于 `syscall` 与 `syscall;ret` 之间的选择，即如果只是执行 `sys_write` 之类的，后面还要继续 ROP 的，那就要选 `syscall;ret`，而直接 getshell 的则是两种皆可。
 
 能够正确执行，其中难点在于找到 binsh_addr，为了使得 binsh 被写在栈的一个确定的位置，我们通常有几个方案：
 
