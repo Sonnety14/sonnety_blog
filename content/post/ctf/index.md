@@ -1213,6 +1213,8 @@ Canary 栈保护的核心思想，就是在函数的栈上放一段“哨兵值�
 低地址
 ```
 
+（所以对于开启了 canary 保护的程序，类似 `_BYTE buf[24]; // [rsp+0h] [rbp-20h] BYREF` 的伪代码，到 rbp 距离有 0x20 中，是包含 canary 的，`payload = b'A'*0x18 + p64(canary)`）
+
 而函数返回时会做以下检查：
 
 * 取出栈上的 canary
