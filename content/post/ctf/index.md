@@ -1,5 +1,5 @@
 ---
-title: "CTF-pwn 学习日志 0x00 版"
+title: "CTF-user-pwn 栈漏洞学习日志 0x00 版"
 description: "如有错误请指出"
 date: 2025-12-17T00:00:00+08:00
 image: ctf.png
