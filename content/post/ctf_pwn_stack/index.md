@@ -224,7 +224,7 @@ rip/eip 与大多寄存器不同，大多寄存器，不特意操作是不会移
 * `push rip`：把下一条指令压入栈中（备份 rip）。
 * `jmp target`：把目标地址赋给 rip。
 
-所以其目标地址指向的代码段**往往结尾有 ret，相当于 pop rip**，把备份的 rip 重新要回来，否则备份的 rip 会破坏我们针对题目构造的栈结构。
+所以其目标地址指向的代码段**往往结尾有 ret，等效于 pop rip**，把备份的 rip 重新要回来，否则备份的 rip 会破坏我们针对题目构造的栈结构。
 
 而进入目标函数之后，大部分函数**立刻执行 `push rbp`（或 ebp）把旧的栈底压入栈**。
 
@@ -255,7 +255,7 @@ call 后面既可以跟 call rax 这种间接跳转，也可以 call 0x400123 �
 * `PLT`（过程链接表 - Procedure Linkage Table）
 * `GOT`（全局偏移表 - Global Offset Table）
 
-在**没有开启 FULL RELOAD 的情况**下，`PLT` 执行以下两种操作：
+在**没有开启 Full RELRO 的情况**下，`PLT` 执行以下两种操作：
 
 1. 若要访问的地址已经存在于 `GOT` 中：直接访问。
 
@@ -2072,6 +2072,8 @@ if __name__ == "__main__":
 
 ## 栈迁移
 
+> 可以回看复习“全局数据区域”。
+
 在常规的栈溢出攻击中，通常会在覆盖了 ret 之后，继续写入长长的一串 ROP 链。
 
 但是当程序只给非常微小的溢出空间时，比如，输入缓冲区的溢出限制非常严格，只能刚好覆盖掉 ebp 和紧挨着的 ret。
@@ -2105,7 +2107,7 @@ jmp rip
 
 紧接着 pop rbp 则弹出了 old rbp 赋值给 rbp，恢复了父函数的 rbp，rsp 下移 8 位。
 
-下一步 pop rip 把函数调用后的下一条指令弹出给了 rip，最后函数返回父函数，子函数被销毁，最后状态恢复成了进子函数时的状态。
+下一步等效于 pop rip 把函数调用后的下一条指令弹出给了 rip，最后函数返回父函数，子函数被销毁，最后状态恢复成了进子函数时的状态。
 
 对于栈迁移：
 
@@ -2264,7 +2266,7 @@ if __name__ == "__main__":
 然而看她的 bss 段，`.bss:0000000000601080 ??                                bank db    ? ;` 其实离上面的 got 表一类不可写数据挺近的，考虑到栈向低地址生长，执行 system 或 puts 时会申请大量局部变量，可能跑到 got 上，所以我们必须先垫几个 ret 把 bss 抬高。
 
 ```
-payload2 = p64(ret_addr)*20 + p64(pop_rdi_ret) + p64(puts_got) + p64(puts_plt) + p64(main_addr)         # ret 即 pop rip，将 rsp 抬高，放置访问到 got 表等不可写信息
+payload2 = p64(ret_addr)*20 + p64(pop_rdi_ret) + p64(puts_got) + p64(puts_plt) + p64(main_addr)         # ret 等效于 pop rip，将 rsp 抬高，放置访问到 got 表等不可写信息
 ```
 
 然后我就 ROP 了半天，死活也不能打通 system，最后找了找题解，发现可以用 onegadget 就过了，怀疑是因为 system 会开非常多的局部变量，如果在 bss 段再次进行一次 ROP，那么 rsp 就会跑到 got 上去，导致错误。
@@ -2297,7 +2299,7 @@ def main():
     io.send(payload_1)
     io.recvuntil(b"Done!You can check and use your borrow stack now!\n")
 
-    payload2 = p64(ret_addr)*20 + p64(pop_rdi_ret) + p64(puts_got) + p64(puts_plt) + p64(main_addr)         # ret 即 pop rip，将 rsp 抬高，放置访问到 got 表等不可写信息
+    payload2 = p64(ret_addr)*20 + p64(pop_rdi_ret) + p64(puts_got) + p64(puts_plt) + p64(main_addr)         # ret 等效于 pop rip，将 rsp 抬高，放置访问到 got 表等不可写信息
     io.send(payload2)
     leak_data = io.recvline().strip(b'\n')
     puts_addr = u64(leak_data.ljust(8,b'\x00'))
