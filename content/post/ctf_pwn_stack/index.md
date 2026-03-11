@@ -501,7 +501,7 @@ BUU CTF 题目链接：
 [[ZJCTF 2019]Login](https://buuoj.cn/challenges#[ZJCTF%202019]Login)（※ hint：call rax）
 
 
-----
+---
 
 ## shellcode && Ret2shellcode
 
@@ -1765,8 +1765,6 @@ syscall 执行 `sys.write(1, rsp, 0x400)`
 
 此时输出的前 8 个字节是 0x10 处的 0x4000B0，第 9 到 16 个字节是 0x18 处的栈地址，记为 stack_addr.
 
----
-
 Phase 2：第一次 SROP (准备栈迁移)
 
 ret start再读入，rsp下移 8位。
@@ -1781,8 +1779,6 @@ ret start再读入，rsp下移 8位。
 | `.....` |  |  |
 
 这里填 8 个 A 给 syscall 留位置，方便下一次输入 15 个字符，使 `rax = 15` 执行 sigreturn。
-
----
 
 Phase 3：触发第一次 SROP
 
@@ -1806,7 +1802,6 @@ ret start再读入，rsp 下移 8 位指向 `0x20`。
     frame1.rsp = stack_addr
     frame1.rip = syscall_ret
 ```
----
 
 Phase 4 & 5：在受控栈上构造第二次 SROP
 
@@ -1837,8 +1832,6 @@ Phase 4 & 5：在受控栈上构造第二次 SROP
 | `stack_addr + 0x10` | `sigframe` |  |
 | `.....` | `00000000` |  |
 | `stack_addr + 0x300` | `/bin/sh` |  |
-
----
 
 
 最后再 ret start 重新读入，rsp 向下移 8 位，`sigreturn = p64(syscall_ret) + b'\x00'*7` 执行 execve。
