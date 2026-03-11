@@ -1,5 +1,5 @@
 ---
-title: "CTF-user pwn 栈漏洞学习总结 0x10 版"
+title: "CTF-user-pwn 栈漏洞学习总结 0x10 版"
 description: "在学习日志 0x00 版进行了优化与删减，如有错误请指出。"
 date: 2026-03-11T00:00:00+08:00
 image: ctf_pwn_stack.png
@@ -60,11 +60,13 @@ ANSI_COLOR="1;31
 
 ## Reference
 
-在学习过程中参考了以下文章或博客：
+在学习过程中参考了以下文章或博客，感谢前辈：
 
 [CTF-wiki](https://ctf-wiki.org/)
 
 [hello ctf](https://hello-ctf.com/home/)
+
+[bilibili:高中生教你 CTF pwn（用户态）](https://www.bilibili.com/video/BV1gQGizqE1U?spm_id_from=333.788.videopod.sections&vd_source=69aa8bfd2f389eec2562a6757236f432)
 
 [shellcode 的艺术](https://xz.aliyun.com/news/6249)
 
@@ -73,6 +75,12 @@ ANSI_COLOR="1;31
 [buuctf之pwn题(持续更新)](https://www.z1r0.top/2022/02/22/buuctf%E4%B9%8Bpwn%E9%A2%98-%E6%8C%81%E7%BB%AD%E6%9B%B4%E6%96%B0/)
 
 [SROP 攻击原理与例题解析](https://www.anquanke.com/post/id/217081)
+
+[栈溢出之ret2csu](https://www.cnblogs.com/zq10/p/14385929.html)
+
+[CTF-user-pwn 栈漏洞学习日志 0x00 版](https://sonnety14.github.io/sonnety_blog/p/ctf-pwn-%E5%AD%A6%E4%B9%A0%E6%97%A5%E5%BF%97-0x00-%E7%89%88/)
+
+[CTF pwn 杂题乱写 0x00 版](https://sonnety14.github.io/sonnety_blog/p/ctf-pwn-%E6%9D%82%E9%A2%98%E4%B9%B1%E5%86%99-0x00-%E7%89%88/)
 
 ---
 
