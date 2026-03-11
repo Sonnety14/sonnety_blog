@@ -648,6 +648,8 @@ if __name__ == "__main__":
 
 ### jarvisoj_level1
 
+[题目链接](https://buuoj.cn/challenges#jarvisoj_level1)
+
 此题本是大水题，NX 保护没开，注入 shellcode。
 
 本地很顺利跑通了，但是突然发现，远端竟然不把栈泄露给我们，只有我们输入了什么东西，才会回弹给我们。
@@ -834,6 +836,7 @@ def main():
     io.recvuntil(b"Please input new log info:")
     io.sendline(payload)
     io.recvuntil(b"0.Exit\n:")
+
     io.sendline(b"4")
     io.interactive()
 
@@ -1019,15 +1022,13 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-
 ```
 
 ### ez_pz_hackover_2016
 
 [题目链接](https://buuoj.cn/challenges#ez_pz_hackover_2016)
 
-这道题没看 NX 保护，思路挺简单，就是 shellcode 注入，但是还是挺考验动态调试的。
+这道题没开 NX 保护，思路挺简单，就是 shellcode 注入，但是还是挺考验动态调试的。
 
 chall 函数：
 
