@@ -21,6 +21,10 @@ tags:
 
 以后再更新博客，直接在该文件夹运行 `git pull`。
 
+## upd on 26/03/16
+
+突然意识到 github 的图床多少沾点，所以整体博客换了图床，好麻烦。。。
+
 ## upd on 25/12/17 搭建博客
 
 [推歌:【重音テト/中字】平成【しぜんすい】](https://www.bilibili.com/video/BV1oPSEBKExA/?spm_id_from=333.1007.top_right_bar_window_custom_collection.content.click&vd_source=69aa8bfd2f389eec2562a6757236f432)
