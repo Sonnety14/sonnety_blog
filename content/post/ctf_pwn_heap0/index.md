@@ -2,7 +2,7 @@
 title: "CTF-user-pwn 堆漏洞学习日志 0x00 版"
 description: "在学习日志 0x00 版，存在部分谬误待修正，如有错误请指出。"
 date: 2026-03-16T00:00:00+08:00
-image: ctf_pwn_heap0.png
+image: ctf_pwn_heap0.jpg
 math: true
 license: 
 hidden: false
