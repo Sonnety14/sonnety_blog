@@ -48,8 +48,7 @@ ANSI_COLOR="1;31
 
 请见谅，如有错误请指出。
 
-![98e80b34343ce49fa1e5d7b94f7a0a8e](https://github.com/user-attachments/assets/f62be8b4-e0a8-48a9-b219-176d188e59fd)
-
+![image](./stack0x10/pic01.jpg)
 
 更新日志：
 
@@ -409,7 +408,7 @@ if __name__ == "__main__":
 
 IDA 容易发现某变量等于 11.28125 （即 0x41348000）时就会直接 ak，虽然那个变量不可直接修改，但是我们可以栈溢出啊。
 
-<img width="347" height="195" alt="image" src="https://github.com/user-attachments/assets/47a9e491-52b2-4dcf-8682-b0a35e402ed6" />
+![image](./stack0x10/pic02.png)
 
 v1 到 rbp 是 0x30，v2 到 rbp 是 0x4，那么 v1 到 v2 是小学加减法。
 
@@ -443,7 +442,7 @@ if __name__ == "__main__":
 
 然而再考虑栈溢出的时候发现 `fgets` 只留了 32 的长度读入。
 
-<img width="810" height="509" alt="image" src="https://github.com/user-attachments/assets/05f07cec-cb37-4439-b212-44c41b09695d" />
+![image](./stack0x10/pic03.png)
 
 然而仔细一看后面看似没什么用的代码，竟然把输入的 I 变成了 you，变量到 ebp 有 60 字节可以用 20 个 I 代替。
 
@@ -664,7 +663,7 @@ data = io.recv(4500)
 
 这样我们会得到非常非常多的地址：
 
-<img width="370" height="446" alt="image" src="https://github.com/user-attachments/assets/c894f85b-28ae-4c16-ba91-ea484c0ba323" />
+![image](./stack0x10/pic04.png)
 
 仔细观察，发现由于不可抗力，我们最后一个地址就是不完整的，但是倒数第二个是完整的，而且每个地址之间都只差了 0x10.
 
@@ -897,7 +896,7 @@ canary 形似：`00 aa bb cc dd ee ff 11`。
 
 ※ hint：32 位的地址刚好输出长度为 4。
 
-<img width="602" height="75" alt="image" src="https://github.com/user-attachments/assets/e93c3d60-45e1-47e8-9f89-b07c9231fc89" />
+![image](./stack0x10/pic05.png)
 
 IDA 查到 x 地址为 `x	0804A02C`，调试一下得 offset = 11.
 
@@ -926,7 +925,7 @@ if __name__ == "__main__":
 
 ※ hint：更改随机生成的密码。
 
-<img width="406" height="68" alt="f80dc88844da732b02f4c731b4158d1e" src="https://github.com/user-attachments/assets/31e08b04-277a-4c74-b295-bab2086f1d38" />
+![image](./stack0x10/pic06.png)
 
 `buf_` 地址 `0x804C044`，offset = 10。
 
@@ -959,7 +958,7 @@ if __name__ == "__main__":
 
 ※ hint：GOT 表覆写攻击。
 
-<img width="2042" height="760" alt="image" src="https://github.com/user-attachments/assets/110a929a-82e8-4b7c-b563-1100dab1acae" />
+![image](./stack0x10/pic07.png)
 
 复读机，有 `printf(format);`，显然 fmt。
 
@@ -971,7 +970,7 @@ if __name__ == "__main__":
 
 因为没有 ret，是死循环程序，所以栈溢出被堵死，只能考虑 got 表覆写，通过第一次泄露 libc，第二次向 printf_got 或者 read_got 覆写 system 或者 one_gadget。
 
-<img width="1100" height="794" alt="05aad958e58fbdd0eb09940b66afca63" src="https://github.com/user-attachments/assets/1edbf502-dd21-44ed-a558-c788e1876d4f" />
+![image](./stack0x10/pic08.png)
 
 偏移量是 8.
 
@@ -1111,7 +1110,7 @@ ROPgadget 还有全自动生成一条完整 ROP 链的指令，即 `ROPgadget --
 
 发现这个二进制文件大的离谱，赶紧检查一下。
 
-<img width="1633" height="174" alt="2a200b74e27ff693c5f925bf8f2e2e95" src="https://github.com/user-attachments/assets/e994f3bc-f4b5-4db7-8f6d-aad8b7e9edce" />
+![image](./stack0x10/pic09.png)
 
 果然是静态链接，那么我们就可以用 `ROPgadget --binary rop --ropchain` 直接得到一套 ROP 链。
 
@@ -1207,7 +1206,7 @@ if __name__ == "__main__":
 
 首先泄露 canary，canary 前两位是 \x00 截断了输出，我们用 A 覆盖它。
 
-<img width="2106" height="1306" alt="e18249248ac6e91dd1429cfafe26720f" src="https://github.com/user-attachments/assets/7d45e59d-1646-4535-ae4b-3f1675dde5d7" />
+![image](./stack0x10/pic10.png)
 
 把 canary 填上之后就是轻松的 ROP 链了。
 
@@ -1365,7 +1364,7 @@ if __name__ == "__main__":
 
 简单扫一下，发现偏移是 6，然后第 7 个有点像 canary，gdb 一下发现就是。
 
-<img width="1899" height="1049" alt="f0c1d1c8bbbae9e679e199c2afd1d17b" src="https://github.com/user-attachments/assets/c7b3232a-8f05-47f1-9688-97cc81964716" />
+![image](./stack0x10/pic11.png)
 
 然后直接 ret2libc。
 
@@ -1530,7 +1529,7 @@ one_gadget 通常有 Constraints（约束条件）。
 
 [BUU CTF 题目链接](https://buuoj.cn/challenges#ciscn_2019_c_1)
 
-<img width="880" height="485" alt="image" src="https://github.com/user-attachments/assets/b1d9274b-982b-4c3b-bfae-9e7a06d3fd88" />
+![image](./stack0x10/pic12.png)
 
 这个题在 ret2libc 里正常做法，下面是 one_gadget 做法，更加简洁：
 
@@ -1737,7 +1736,7 @@ if __name__ == "__main__":
 
 64位程序，只开启了NX保护，程序非常简单，纯纯毛坯房，没有 bss 段。
 
-<img width="1087" height="197" alt="image" src="https://github.com/user-attachments/assets/387bd309-de16-4c44-bc64-2f026f7bdbd2" />
+![image](./stack0x10/pic13.png)
 
 Phase 1：泄露栈地址
 
@@ -1923,7 +1922,7 @@ Ret2csu 通常用来解决这个问题。
 
 在大多数动态链接的程序中，往往存在一个名为 `__libc_csu_init` 的片段，形似：
 
-<img width="1214" height="424" alt="image" src="https://github.com/user-attachments/assets/03d52d23-7f30-456c-84fb-d9d7d5e999f4" />
+![image](./stack0x10/pic14.png)
 
 其在 IDA 中也不一定就在 Function name 栏里，**我们可以通过 ROPgadget 搜索 `pop r15,ret` 来寻找它。**
 
@@ -2017,7 +2016,7 @@ if __name__ == "__main__":
 
 因为输出长度是 0x30，可以泄露栈地址，那么我们就可以算出自己填的 binsh 地址。
 
-<img width="1509" height="401" alt="image" src="https://github.com/user-attachments/assets/3e87a064-a248-45b4-b221-b84287f8b837" />
+![image](./stack0x10/pic15.png)
 
 泄露栈到 rbp 是 0x9d8 - 0x8a0 = 0x138，加上 0x10 的 padding 就是 0x148。
 
@@ -2147,13 +2146,13 @@ jmp rip
 
 这道题给了两个 printf，可以泄露栈。
 
-<img width="2559" height="937" alt="image" src="https://github.com/user-attachments/assets/55c7a5dd-d58b-41e7-8f9a-06804323718c" />
+![image](./stack0x10/pic16.png)
 
 溢出给了 8 个字节，刚好够覆盖 ebp 和 eip。
 
 所以第一次 printf 肯定是泄露栈，然后 gdb 调试一下，找一下泄露的栈到输入的 ebp 的偏移。
 
-<img width="1746" height="851" alt="900f5a51aa2e6d0e8e2ad953bd8cfc25" src="https://github.com/user-attachments/assets/33758e9d-9426-4889-a52d-e5ce6997442f" />
+![image](./stack0x10/pic17.png)
 
 偏移是 0x38。
 
@@ -2200,7 +2199,7 @@ if __name__ == "__main__":
 
 发现这个题有一个全局变量 s 可以写入，它写在 bss 段上，没有开 PIE，地址固定。
 
-<img width="2550" height="1002" alt="image" src="https://github.com/user-attachments/assets/210723ec-2a78-41e5-97c3-ea535c87461f" />
+![image](./stack0x10/pic18.png)
 
 于是我们可以考虑把 ROP 链写在 s 上，然而发现并没有 system。
 
