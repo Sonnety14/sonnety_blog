@@ -228,8 +228,10 @@ chunk 被释放时，如果 **邻接 Top chunk 且 chunk 大小并不是很小�
 
 正是“先分拣，后分配”，使该机制复杂而高效，当我们执行 heap_test 到 `void *reborn2 = malloc(0x139);` 时：
 
-![reborn2](./8.png)
+![reborn](9.png)
 
 可见 0x118 + 0x8 = 0x120 刚好等于 tcachebins 里的 chunk 大小，所以**直接拿来用**。
 
-而没有 0x150 大小的 chunk 存在于 tcachebins 或者 unsortbins 中，所以**“先分拣”将 unsorted bins 的**
+而没有 0x150 大小的 chunk 存在于 tcachebins 或者 unsortbins 中，**所以“先分拣”将 unsorted bins 的巨大 chunk 放入 largebins**，然后从 smallbins 往下一路检查没有找到相同大小的 chunk，于是在 largebins 里巨大的 chunk 上切割下 0x150 大小的内存，然后**把被切割的 chunk 重新放回 unsortbins 等待再次“分拣”**。
+
+
