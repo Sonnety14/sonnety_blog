@@ -103,7 +103,7 @@ int main() {
 
 当 heap_test 执行第一行 malloc(0x114) 结束后，我们可以清晰的看到其空间被严格划分为：
 
-![heap_test](./1.png)
+<img width="996" height="570" alt="1" src="https://github.com/user-attachments/assets/f2596414-8dee-4930-8f02-b1517e9f6977" />
 
 * **蓝色的堆段**：
   * 起始地址 `0x555555559000`，结束地址 `0x55555557a000`。
@@ -163,7 +163,7 @@ int main() {
 
 我们对 heap_test 这个程序举例，查看它的信息：
 
-![chunk one](./3.png)
+<img width="537" height="515" alt="3" src="https://github.com/user-attachments/assets/914b042b-3ff3-4c88-9f86-b2248caa3fdc" />
 
 * 第一个 Allocated chunk 是现代 glibc 用来存放自己的 Tcache (Thread Local Cache) 管理块，当程序第一次调用 malloc() 的时候就会将其存放，用来加速内存分配，大小通常是 0x290。
   * 在 **Glibc 2.27(Ubuntu 18.04)** 加入，在 Glibc 2.23 中，用户申请的内存块直接占用 chunk 的一号位。
@@ -176,7 +176,7 @@ int main() {
 
 当我们执行到 `void *guard = malloc(0x810); ` 时，heap_test 信息如图：
 
-![chunk four](./4.png)
+<img width="983" height="1020" alt="4" src="https://github.com/user-attachments/assets/36b3102e-b689-4506-ba28-c2b59cdc8d86" />
 
 #### 释放逻辑
 
@@ -202,13 +202,14 @@ chunk 被释放时，如果 **邻接 Top chunk 且 chunk 大小并不是很小�
  
 比如我们的 heap_test 执行到第一个 free 时：
 
-![free_1](./5.png)
+<img width="983" height="1020" alt="4" src="https://github.com/user-attachments/assets/bd8b5386-5841-464f-9082-5814a7b65c89" />
 
 如我们说的，第一个 chunk 进入了 tcachebins，chunk_2 的 p 位仍然为 1。
 
 当 heap_test 执行到第二个 free 时：
 
-![free_2](./7.png)
+<img width="707" height="863" alt="7" src="https://github.com/user-attachments/assets/708efda7-db70-4d72-84bf-280d1c654be4" />
+
 
 可见 chunk_2 优先进入了 unsorted bins，**此时 chunk_3 的 p 位变成了 0**。
 
@@ -216,7 +217,7 @@ chunk 被释放时，如果 **邻接 Top chunk 且 chunk 大小并不是很小�
 
 当 heap_test 执行到第三个 free 时：
 
-![free_3](./6.png)
+<img width="673" height="824" alt="6" src="https://github.com/user-attachments/assets/4a8a22e6-105c-4757-ada1-3715f80b6b1c" />
 
 发现 0x520 + 0x1930 = 0x1e50，而 guard 的 p 位变成了 0。
 
@@ -228,7 +229,8 @@ chunk 被释放时，如果 **邻接 Top chunk 且 chunk 大小并不是很小�
 
 正是“先分拣，后分配”，使该机制复杂而高效，当我们执行 heap_test 到 `void *reborn2 = malloc(0x139);` 时：
 
-![reborn](9.png)
+<img width="692" height="957" alt="9" src="https://github.com/user-attachments/assets/11a38736-5154-4f07-a654-b6e61b099be3" />
+
 
 可见 0x118 + 0x8 = 0x120 刚好等于 tcachebins 里的 chunk 大小，所以**直接拿来用**。
 
