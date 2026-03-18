@@ -180,8 +180,6 @@ int main() {
 
 #### 释放逻辑
 
-chunk 被释放后，其数据依然不会消失，只改变指针。
-
 chunk 被释放时，如果 **邻接 Top chunk 且 chunk 大小并不是很小（即 tcachebins 和 Fastbins 优先）**，那么它就会被合并至 Top chunk，否则就会被按照要求放入 bins，而申请新内存时系统也优先看 bins。
 
 * Fastbins：大小在 0x80 以下的 chunk，
@@ -199,6 +197,12 @@ chunk 被释放时，如果 **邻接 Top chunk 且 chunk 大小并不是很小�
   * 与 Fastbins 相同，**进入 tcachebins 不会清空下一个块的 P 位**。
   * **对于每一种大小的 Chunk，Tcache 最多只能装 7 个**，因此大小在 0x80 以下的 chunk_8 及以后的 chunk 都会进入 fastbins。
   * 在 tcachebins 用尽 7 个相同大小的 chunk 后，会进入 fastbins 再次寻找，并转移至多 7 个 chunk 再到 tcachebins。
+
+而由于 bins 都是链表结构，**为了存储前指针 fd 和后指针 bk，被释放的 chunk 的 user_data 部分的前几字节会被“征用”来存储指针。**
+
+对于像 fastbins 的单向链表，第一个进入 bis 的 chunk 会把 0 分配给 fd，而其他双向链表则会分配 main_arena 的某个部分。
+
+重分配时再通过 fd 指针遍历找到合适的 chunk。
  
 比如我们的 heap_test 执行到第一个 free 时：
 
@@ -209,7 +213,6 @@ chunk 被释放时，如果 **邻接 Top chunk 且 chunk 大小并不是很小�
 当 heap_test 执行到第二个 free 时：
 
 <img width="707" height="863" alt="7" src="https://github.com/user-attachments/assets/708efda7-db70-4d72-84bf-280d1c654be4" />
-
 
 可见 chunk_2 优先进入了 unsorted bins，**此时 chunk_3 的 p 位变成了 0**。
 
@@ -231,9 +234,7 @@ chunk 被释放时，如果 **邻接 Top chunk 且 chunk 大小并不是很小�
 
 <img width="692" height="957" alt="9" src="https://github.com/user-attachments/assets/11a38736-5154-4f07-a654-b6e61b099be3" />
 
-
 可见 0x118 + 0x8 = 0x120 刚好等于 tcachebins 里的 chunk 大小，所以**直接拿来用**。
 
 而没有 0x150 大小的 chunk 存在于 tcachebins 或者 unsortbins 中，**所以“先分拣”将 unsorted bins 的巨大 chunk 放入 largebins**，然后从 smallbins 往下一路检查没有找到相同大小的 chunk，于是在 largebins 里巨大的 chunk 上切割下 0x150 大小的内存，然后**把被切割的 chunk 重新放回 unsortbins 等待再次“分拣”**。
-
 
