@@ -61,3 +61,33 @@ if (in_array($_page, $whitelist)) {
 由于 .php 的 include 机制，即**即使当前目录下不存在 `hint.php` 文件**，当 `include(hint.php/..)` 时，由于其认为你进入了某个文件又返回上一级，相当于没做，所以不做操作。
 
 因此可以绕过检查机制，构造 `?file=hint.php?../../../../../../../../ffffllllaaaagggg` 一路返回上一级找到 flag。
+
+### [ACTF2020 新生赛]Exec
+
+[题目链接](https://buuoj.cn/challenges#[ACTF2020%20%E6%96%B0%E7%94%9F%E8%B5%9B]Exec)
+
+```
+<?php
+    $ip = $_POST['ip']; // 接收你输入的 IP
+    // 直接拼接到 Linux ping 命令中并执行
+    system("ping -c 3 " . $ip); 
+?>
+```
+
+他会输入进 $ip 的东西全都当作 system 的一部分，所以我们可以键入 `127.0.0.1;ls`，`127.0.0.1;ls /`，`127.0.0.1;cat /flag`。
+
+### [GXYCTF2019]Ping Ping Ping
+
+[题目链接](https://buuoj.cn/challenges#[GXYCTF2019]Ping%20Ping%20Ping)
+
+这个题有点神秘。
+
+首先就是 `?ip=127.0.0.1;ls`，发现有 `index.php` 和 `flag.php` 两个文件。
+
+然后先尝试 `?ip=127.0.0.1;cat flag.php`，提示 space 即空格不行。
+
+所以换成 `$IFS$9` 间断符，提示 flag 不行。
+
+但是 index 可以，所以可以得到屏蔽规则。
+
+最后`?ip=127.0.0.1;a=g;cat$IFS$9fla$a.php` 就可以了，flag 在页面原代码里隐藏。
