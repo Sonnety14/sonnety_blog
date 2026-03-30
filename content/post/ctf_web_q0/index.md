@@ -91,3 +91,26 @@ if (in_array($_page, $whitelist)) {
 但是 index 可以，所以可以得到屏蔽规则。
 
 最后`?ip=127.0.0.1;a=g;cat$IFS$9fla$a.php` 就可以了，flag 在页面原代码里隐藏。
+
+### [SUCTF 2019]EasySQL
+
+[题目链接](https://buuoj.cn/challenges#[SUCTF%202019]EasySQL)
+
+这个题要求根据回答猜一下后端代码。
+
+发现输入一些数字 `1` `123` 都会返回 1。
+
+那么考虑其逻辑大概是 SELECT [input] [一些操作使input成为1]。
+
+因此我们可以键入 `*,1`，就把 SELECT * 隔离开了。
+
+### [极客大挑战 2019]Secret File
+
+[题目链接](https://buuoj.cn/challenges#[%E6%9E%81%E5%AE%A2%E5%A4%A7%E6%8C%91%E6%88%98%202019]Secret%20File)
+
+先看原代码，跳到 archiveroom.php。
+
+然后打开 burp suite 拦截一下，在 repeater 里交，得到 response，里面有  secr3t.php  。
+
+进入 secr3t.php，发现源码，然后没有禁止 filter，直接把 flag.php 的内容转 base64 输出出来就得到了。
+
