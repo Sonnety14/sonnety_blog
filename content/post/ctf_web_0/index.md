@@ -223,10 +223,50 @@ SQL 有四大核心动作：
 
 首先点进去是一个登录页面，拿 Burp Suite 拦截一下，然后得到一个 HTTP POST 请求。
 
-比如 `check.php?username=test&password=123`。
+比如 `check.php?username=test&password=123`。·
 
 对这个右键扫描一下，发现 SQL 漏洞。
 
 尝试在 username 写个一个 `admin'#`，没过，证明 user 这个数据表里没有 admin，构造一个永真式 1=1，发送 `admin' or '1=1'#`。
 
-### 例题 2
+## PHP 伪协议
+
+当 Web 开发者想要在代码里读取文件时，通常会用到 `include()` 或 `file_get_contents()` 这类文件包含函数。
+
+比如：
+
+```
+$file = $_GET['page'];
+include($file);
+```
+
+那么我们在 url 后面加上 `?page=index.php`（如果根目录下存在 `index.php` 该文件），那么就会返回 index.php 执行后的结果。
+
+1. `file://` 读本地文件。
+
+读取服务器本地的绝对路径文件。
+
+如 `?page=file:///etc/passwd` 就是读取服务器端 /etc/passwd 的文件。
+
+2. `php://filter`
+
+相当于 `cat index.php | base64`。
+
+如 `?page=php://filter/read=convert.base64-encode/resource=index.php` 会把 index.php 的代码转换成 base64，然后再打印出来。
+
+
+3.`php://input`
+
+这个伪协议的作用是读取 HTTP 请求体（Body）里的原始 POST 数据。
+
+
+### 例题 1：[ACTF2020 新生赛]Include
+
+[BUU CTF 题目链接](https://buuoj.cn/challenges#[ACTF2020%20%E6%96%B0%E7%94%9F%E8%B5%9B]Include)
+
+用 php://filter 把 index.php 的代码转换成 base64。
+
+### 例题 2：[BJDCTF2020]ZJCTF，不过如此
+
+[BUU CTF 题目链接](https://buuoj.cn/challenges#[BJDCTF2020]ZJCTF%EF%BC%8C%E4%B8%8D%E8%BF%87%E5%A6%82%E6%AD%A4)
+
