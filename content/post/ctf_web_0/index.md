@@ -2,7 +2,7 @@
 title: "CTF-web 学习总结 0x00 版"
 description: "边学边写的第 0 版本，如有错误请指出。"
 date: 2026-03-28T00:00:00+08:00
-image: ctf_web_0.png
+image: ctf_web_0.jpeg
 math: true
 license: 
 hidden: false
