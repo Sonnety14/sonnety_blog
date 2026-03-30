@@ -2,7 +2,7 @@
 title: "CTF-web 做题日志 0x00 版"
 description: "做题日志的第 0 版本，如有错误请指出。"
 date: 2026-03-30T00:00:00+08:00
-image: ctf_web_q0.png
+image: ctf_web_q0.jpg
 math: true
 license: 
 hidden: false
