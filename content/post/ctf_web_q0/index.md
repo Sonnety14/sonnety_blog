@@ -329,3 +329,15 @@ array(1) {
 `GIF89a <script language="php">eval($_POST['Sonnety']);</script>`
 
 最后在上传的文件那里发一个 POST 请求，`木马密码=cat /flag` 即可。
+
+### [ACTF2020 新生赛]Upload
+
+[题目链接](https://buuoj.cn/challenges#[ACTF2020%20%E6%96%B0%E7%94%9F%E8%B5%9B]Upload)
+
+先传一个木马，发现人家只要 .jpg 等后缀的。
+
+而且 Burp Suite 没有拦截到任何东西，考虑这是前端检测，浏览器中打开 JavaScript 禁用，再上传木马。
+
+回答 bad file，估计是对 .php 强制检查，所以我们上传一个 phtml。
+
+过了，在 Burp Suite 包装一个 POST 请求即可。
