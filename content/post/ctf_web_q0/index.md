@@ -15,6 +15,43 @@ tags:
     - 学习日志
 ---
 
+## 文件传输漏洞 upload-labs
+
+[upload-labs](http://805e9f61-c812-4302-b3c7-edde169dfdf2.node5.buuoj.cn:81/)
+
+### Pass-01
+
+浏览器弹窗，前端检查，禁用 JavaScript。
+
+### Pass-02
+
+POST 请求体里把文件类型改成 image/jpeg。
+
+### Pass-03
+
+没检查 phtml。
+
+### Pass-04
+
+由于上传文件不改文件名，所以可以考虑上传 `.user.ini` 或 `.htaccess`。
+
+又由于 /upload 路径下没有 .php 文件，所以选择上传 `.htaccess`。
+
+```
+<FilesMatch "shell.jpg">
+  SetHandler application/x-httpd-php
+</FilesMatch>
+```
+
+该文件会使当前目录下的 shell.jpg 以 .php 格式执行。
+
+### Pass-05
+
+本题没有转换上传文件的大小写，所以我们可以在 Burp suite 里把 filename 改为 `.PHP`。
+
+再上传，注意本题会把文件名随机命名，所以要查看图片链接。
+
+### Pass-06
 
 ### [HCTF 2018]WarmUp
 
