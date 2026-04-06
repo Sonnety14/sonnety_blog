@@ -55,6 +55,7 @@ ANSI_COLOR="1;31
 
 * upd on 26.03.11：初发布。
 * upd on 26.03.18：增加了 fmt 例题 ciscn_2019_sw_1。
+* upd on 26.04.06：增加了 fmt 题单 wdb_2018_2nd_easyfmt。
 
 ---
 
@@ -1081,6 +1082,8 @@ if __name__ == "__main__":
 BUU CTF:
 
 [web_of_sci_volga_2016](https://buuoj.cn/challenges#web_of_sci_volga_2016)
+
+[wdb_2018_2nd_easyfmt](https://buuoj.cn/challenges#wdb_2018_2nd_easyfmt)（hint：例题 3。）
 
 ---
 
