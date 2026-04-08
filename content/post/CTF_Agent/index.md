@@ -1,6 +1,6 @@
 ---
 title: "CTF AI 本地化部署【白痴版】"
-description: "白痴自用的 AI 本地化部署攻略，如有更好方案请请教我谢谢喵。"
+description: "白痴自用的 AI 本地化部署攻略，如有更好方案请请私信教我谢谢喵。"
 date: 2026-04-07T00:00:00+08:00
 image: ctf_agent.png
 math: true
