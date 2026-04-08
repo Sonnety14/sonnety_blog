@@ -517,6 +517,22 @@ if __name__ == "__main__":
     main()
 ```
 
+update on 26/05/08：
+
+我错了，单字节溢出不是“让 manage_chunk_1 包裹 user_chunk_1 和 manage_chunk_2”，而是再申请的时候，旧的 manage_chunk 和 user_chunk 合并会被申请为新的 user_chunk，而其下会有新的 manage_chunk。
+
+具体怎么看也不用单独研究，gdb 查一下，在新的 user_data 里面随便写几个标志符号。
+
+（比如说 8 个 E）
+
+<img width="734" height="506" alt="image" src="https://github.com/user-attachments/assets/dc77b1c0-1a56-4f6f-b17a-4b613b611b01" />
+
+然后你发现本次调试里，user_data 的头指针是 0x2d28b0b0，那么管这个 user_data 头指针的 manage_chunk 肯定指向这个地址，往下找找发现在 0x2d28b150 指向了它。
+
+但是我们实际没有找这个地址，而是找了指向 0x2d28b120 的，其实还是选最近的 manage_chunk 改就可以。
+
+总之不用那么绝对，做完这个题可以直接做一下 npuctf_2020_easyheap 感受一下。
+
 ### ciscn_2019_n_3
 
 先申请两个块看看，发现依然是 manage_chunk + user_chunk 的模式，manage_chunk 分别放着 0，manage_chunk大小，rec_str_print 地址，rec_str_free 地址（当申请类型是 text 时）
