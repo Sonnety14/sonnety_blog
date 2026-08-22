@@ -9,6 +9,10 @@ links:
     description: 是 Weedy！
     website: https://blog.rikka.top/about/
     image: weedy.png
+  - title: lyr1s' Blog
+    description: 0daydaydaydaydream
+    website: https://blog.lyr1s.com/
+    image: 0day.jpg
   - title: cnblogs 旧址
     description: OI时期的博客，建立在博客园。
     website: https://www.cnblogs.com/sonnety-v0cali0d-kksk
