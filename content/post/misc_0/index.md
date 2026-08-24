@@ -82,3 +82,58 @@ INED：`49 45 4E 44`（0x49 → I，其他同理）
 
 <img width="1460" height="213" alt="image" src="https://github.com/user-attachments/assets/2a7c1335-a0ba-4341-ad24-579a8b79307f" />
 
+使用 `binwalk -e` 可以自动解析剥离内部文件，也可以再 010 Editor 中选中相关部分，右键选择 `Save Selection` 将其保存为相关文件。
+
+随后我们发现这个压缩文件有密码，根据内部文件 4number.txt 合理猜测，该文件密码为四位数字，进行穷举，使用工具 fcrackzip。
+
+#### fcrackzip 工具
+
+fcrackzip是一款用于破解zip类型压缩文件密码的工具，主要有**暴力破解**和**字典破解**两大功能。
+
+暴力破解 `-b`（brute force），可选字符集 `-c`：
+
+* `-c 1`：字符集为 0~9。
+* `-c a`：字符集为 a~z。
+* `-c A`：字符集为 A~Z。
+* `-c !`：常见特殊字符。
+
+可选长度 `-l`，如 `-l 4~6` 指长度在 4~6 位的密码。
+
+
+字典攻击 `-D`，可以在有限的可能的密码中进行爆破，如存在某密码文本薄 `passwd.txt`，可以用 `fcrackzip -D -p passwd.txt -u secret.zip` 来爆破文件。
+
+总之，如 `fcrackzip -b -c a1 -l 1-6 -u flag.zip`，fcrackzip 是一个好用的爆破工具。
+
+### 常见的 Header
+
+```
+PNG
+89 50 4E 47 0D 0A 1A 0A
+
+JPG
+FF D8 FF
+
+GIF
+47 49 46 38
+
+ZIP
+50 4B 03 04
+
+RAR
+52 61 72 21
+
+7z
+37 7A BC AF 27 1C
+
+PDF
+25 50 44 46
+
+ELF
+7F 45 4C 46
+
+Windows EXE
+4D 5A
+
+GZIP
+1F 8B
+```
