@@ -64,7 +64,7 @@ INED：`49 45 4E 44`（0x49 → I，其他同理）
 图片查看器在 IEND 这里就截止，这样我们就可以隐藏信息了。
 
 
-### [BUUCTF-MISC] 二维码
+#### [BUUCTF-MISC] 二维码
 
 [题目链接](https://ctf2.dasctf.com/dashboard/practice/b9bbb32f-f186-458f-b90b-12440c0f6aea?tab=challenges&challenge=7a44e5a1-beea-4663-9b23-ebe1baf38765)
 
@@ -137,3 +137,15 @@ Windows EXE
 GZIP
 1F 8B
 ```
+
+### PNG 文件结构与宽高修改
+
+现在拿下图，深入学习 PNG 的图片结构：
+
+<img width="1744" height="935" alt="image" src="https://github.com/user-attachments/assets/67ed5b2d-e220-4a36-89ad-24a6bdcf3e4c" />
+
+可以看到，IHDR 前有四个字节是 IHDR 信息，对于该图是 `00 00 00 0D`，这代表了该图的 IDAT 数据部分的长度 Length。
+
+比如该图或者常见图，都是 Length (4 bytes) + Type (4 bytes) + Data (n bytes) + CRC (4 bytes) 的结构，那么该图的 Length 是 0xD = 13 bytes，type = IDAT，自 IDAT 往后数 13 个字节，就是 CRC，也就是 `B8 1F 82 96`（010 中标紫的部分）。
+
+接下来深入 data 部分，一般来讲，data 部分由 Width (4 bytes) + Height (4 bytes) + 
