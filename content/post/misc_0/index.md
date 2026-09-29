@@ -189,3 +189,4 @@ return crc ^ 0xFFFFFFFF               # ④ 最后整体取反
 
 那么对于存在宽高隐写的题目，我们可以直接在 010 Editor，用 pngcheck 查出的 expected CRC （本题是 b757db33），直接去掉 type 得到正确的 data，然后在 010 Editor 里手动修改，得到原图。
 
+（也可以直接使用我在该博客目录下存放的，自写的 pngfix.py，直接 `python pngfix.py target.png fixed.png` 来输出原图）
