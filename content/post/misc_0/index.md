@@ -2,7 +2,7 @@
 title: "CTF-misc 做题日志 0x00 版"
 description: "在做题日志 0x00 版，存在部分谬误待修正，如有错误请指出。"
 date: 2026-08-16T00:00:00+08:00
-image: misc_0.png
+image: misc_0.jpg
 math: true
 license: 
 hidden: false
