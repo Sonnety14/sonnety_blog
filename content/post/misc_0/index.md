@@ -144,8 +144,48 @@ GZIP
 
 <img width="1744" height="935" alt="image" src="https://github.com/user-attachments/assets/67ed5b2d-e220-4a36-89ad-24a6bdcf3e4c" />
 
-可以看到，IHDR 前有四个字节是 IHDR 信息，对于该图是 `00 00 00 0D`，这代表了该图的 IDAT 数据部分的长度 Length。
+图片的前八个字节是签名（`89 50 4E 47 0D 0A 1A 0A`），表示这是个 PNG 文件。
 
-比如该图或者常见图，都是 Length (4 bytes) + Type (4 bytes) + Data (n bytes) + CRC (4 bytes) 的结构，那么该图的 Length 是 0xD = 13 bytes，type = IDAT，自 IDAT 往后数 13 个字节，就是 CRC，也就是 `B8 1F 82 96`（010 中标紫的部分）。
+**其余部分都是由 chunk 组成的**，而 chunk 的结构一般如下：
 
-接下来深入 data 部分，一般来讲，data 部分由 Width (4 bytes) + Height (4 bytes) + 
+```
+[ Length: 4 字节 ] [ Type: 4 字节 ] [ Data: Length 字节 ] [ CRC: 4 字节 ]
+```
+
+比如说，紧挨着签名后面的 chunk 的 type 是 IHDR （`49 48 44 52`），IHDR 前四个字节 （`00 00 00 0D`）就是这个 chunk 的长度，比如 IHDR 的起始位是 0x08，data 的长度是 13，那么 0x08 + 13 + 4 * 3 = 0x21，**就是下一个 chunk 的起始位**。
+
+IHDR 的 data 部分，13 个字节也各有含义：
+
+* 0x10 位（`00 00 09 FF`）：宽度 width。
+* 0x14 位（`00 00 06 3F`）：高度 height。
+* 0x18 位（`08`）：位深，每通道8位。
+* 0x19 位（`02`）：颜色类型，2 = 真彩色 RGB（3 通道）。
+* 0x1A 位（`00`）：压缩方式，deflate。
+* 0x1B 位（`00`）：滤波方式，自适应。
+* 0x1C 位（`00`）：是否隔行，否。
+
+CRC 则是对 Type + Data 算出的检验值，全名叫 Cyclic Redundancy Check（循环冗余校验），本质是多项式除法取余数，**用来发现数据在传输/存储中是否被改坏**。
+
+```
+# deepseek v4.1Flash 生成，仅作参考
+crc = 0xFFFFFFFF                      # ① 初始值
+for byte in data:
+    crc ^= byte                       # ② 把当前字节异或进最低 8 位
+    for _ in range(8):                # ③ 逐位处理（共 8 次）
+        if crc & 1:                   #    最低位是 1
+            crc = (crc >> 1) ^ 0xEDB88320   # 右移一位，再异或多项式
+        else:                         #    最低位是 0
+            crc >>= 1                       # 只右移
+return crc ^ 0xFFFFFFFF               # ④ 最后整体取反
+```
+
+**仅在 PNG 类型文件一般情况下**，可以简单认为 CRC = Type || data （“||”表示拼接）。
+
+因此就可以快速判断该图片是否存在宽高隐写，我们也可以利用 kali 中的 pngcheck 工具快速查看结构错误：
+
+<img width="1153" height="181" alt="image" src="https://github.com/user-attachments/assets/895e72a3-c616-4f17-86db-49af9bd735e3" />
+
+（但是 CRC 没有防篡改机制，因此只要出题人把 CRC 将错就错地修改，pngcheck 就做不出来了）
+
+那么对于存在宽高隐写的题目，我们可以直接在 010 Editor，用 pngcheck 查出的 expected CRC （本题是 b757db33），直接去掉 type 得到正确的 data，然后在 010 Editor 里手动修改，得到原图。
+
