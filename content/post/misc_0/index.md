@@ -15,6 +15,16 @@ tags:
     - 学习日志
 ---
 
+### 个人标准流程
+
+（只是个人初学产物，如若参考本博客学习，不要看）
+
+* 检查图片结构是否有错误 `pngcheck -vtp target.png`（标准结果：无 CRC 错误，无追加数据）
+  * 若 CRC 错误：`python3 pngfix.py target.png fixed.png`。
+  * 若追加数据：`binwalk -e target.png`。
+* 检查尺寸自洽性
+* `zsteg -a`
+
 ## 图片隐写
 
 一张图片 png，本质就是一个文件，也就是一串字节，比如我们用记事本来打开一张图片：
@@ -190,3 +200,21 @@ return crc ^ 0xFFFFFFFF               # ④ 最后整体取反
 那么对于存在宽高隐写的题目，我们可以直接在 010 Editor，用 pngcheck 查出的 expected CRC （本题是 b757db33），直接去掉 type 得到正确的 data，然后在 010 Editor 里手动修改，得到原图。
 
 （也可以直接使用我在该博客目录下存放的，自写的 pngfix.py，直接 `python pngfix.py target.png fixed.png` 来输出原图）
+
+### LSB 隐写
+
+一张 RGB 图片，每个像素是 3 个数：R、G、B，每个数范围 0 ~ 255（一个二进制 8 位数）。
+
+```
+200 = 1 1 0 0 1 0 0 0
+      ↑             ↑
+    最高位        最低位 ← 即 LSB（Least Significant Bit）
+```
+
+因为最低位的更改，使颜色值只改变了 1/255，所以肉眼看不出差距，而最低位的变化可以隐藏信息，因此叫 LSB 隐写。
+
+在单个位置上，lsb 只有 3 位信息，但是在多个位置上，就可以藏巨大的信息。
+
+我们可以用 StegSolve 工具中的 Data Analyse 来具体分析（等价于 kali 中的 `zsteg -E "1b,rgb,lsb,xy"`）：
+
+<img width="1497" height="746" alt="image" src="https://github.com/user-attachments/assets/17c84044-b9f4-42b0-855b-dcd217da9492" />
