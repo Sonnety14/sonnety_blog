@@ -1,0 +1,59 @@
+name: QQ comment notification
+on:
+  discussion:
+    types: [created]
+  discussion_comment:
+    types: [created]
+  issue_comment:
+    types: [created]
+permissions: {}
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Forward comment to Sonnety
+        env:
+          SONNETY_COMMENT_SECRET: ${{ secrets.SONNETY_COMMENT_SECRET }}
+          SONNETY_COMMENT_ENDPOINT: https://sonnety.top/comments/hooks/fbadf7c41eb9e857d64273127da0ae51
+        shell: python
+        run: |
+          import json, os, time, urllib.request, urllib.error
+          with open(os.environ['GITHUB_EVENT_PATH'], encoding='utf8') as f:
+              event = json.load(f)
+          kind = os.environ['GITHUB_EVENT_NAME']
+          if 'pull_request' in event.get('issue', {}):
+              raise SystemExit(0)
+          comment = event.get('comment') or event.get('discussion', {})
+          parent = event.get('discussion') or event.get('issue', {})
+          # giscus creates a discussion scaffold and then a comment: don't notify twice.
+          if kind == 'discussion' and comment.get('user', {}).get('type') == 'Bot':
+              raise SystemExit(0)
+          secret = os.environ['SONNETY_COMMENT_SECRET']
+          if not secret:
+              raise SystemExit('Add SONNETY_COMMENT_SECRET to repository Actions secrets first')
+          data = json.dumps({
+              'event_id': kind + ':' + str(comment['id']),
+              'repository': os.environ['GITHUB_REPOSITORY'],
+              'author': comment.get('user', {}).get('login', 'GitHub')[:100],
+              'title': (parent.get('title') or 'New comment')[:300],
+              'body': (comment.get('body') or '')[:4000],
+              'url': comment['html_url'],
+          }, ensure_ascii=False).encode('utf8')
+          # No checkout, third-party actions, or interpolation of visitor text into shell code.
+          for attempt in range(4):
+              req = urllib.request.Request(os.environ['SONNETY_COMMENT_ENDPOINT'], data=data,
+                  headers={'Authorization': 'Bearer ' + secret, 'Content-Type': 'application/json'}, method='POST')
+              try:
+                  with urllib.request.urlopen(req, timeout=20) as response:
+                      assert json.load(response).get('ok') is True
+                  print('Comment accepted by notification queue')
+                  break
+              except urllib.error.HTTPError as exc:
+                  if exc.code < 500 and exc.code != 429:
+                      raise SystemExit('Notification rejected: HTTP ' + str(exc.code)) from None
+              except (OSError, ValueError):
+                  pass
+              if attempt == 3:
+                  raise SystemExit('Notification unavailable; rerun this workflow after recovery')
+              time.sleep(2 ** (attempt + 1))
